@@ -11,6 +11,8 @@ spring:
       ddl-auto: validate
   flyway:
     enabled: true
+    baseline-on-migrate: true
+    baseline-version: 0
 springdoc:
   api-docs:
     path: /v3/api-docs
