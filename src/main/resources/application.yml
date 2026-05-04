@@ -2,7 +2,7 @@ spring:
   application:
     name: java-customer-onboarding-api
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/postgres}
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/customers_onboarding}
     username: ${SPRING_DATASOURCE_USERNAME:${POSTGRES_USER:postgres}}
     password: ${SPRING_DATASOURCE_PASSWORD:${POSTGRES_PASSWORD:postgres}}
     driver-class-name: org.postgresql.Driver
