@@ -2,6 +2,7 @@ package io.github.kbdemiranda.customer.onboarding.service;
 
 import io.github.kbdemiranda.customer.onboarding.dto.AddressData;
 import io.github.kbdemiranda.customer.onboarding.dto.common.PageResponse;
+import io.github.kbdemiranda.customer.onboarding.dto.document.DocumentResponse;
 import io.github.kbdemiranda.customer.onboarding.dto.onboarding.AddressRequest;
 import io.github.kbdemiranda.customer.onboarding.dto.onboarding.CreateOnboardingRequest;
 import io.github.kbdemiranda.customer.onboarding.dto.onboarding.EmailRequest;
@@ -9,24 +10,33 @@ import io.github.kbdemiranda.customer.onboarding.dto.onboarding.OnboardingFilter
 import io.github.kbdemiranda.customer.onboarding.dto.onboarding.OnboardingResponse;
 import io.github.kbdemiranda.customer.onboarding.dto.onboarding.PhoneRequest;
 import io.github.kbdemiranda.customer.onboarding.entity.CustomerAddress;
+import io.github.kbdemiranda.customer.onboarding.entity.CustomerDocument;
 import io.github.kbdemiranda.customer.onboarding.entity.CustomerEmail;
 import io.github.kbdemiranda.customer.onboarding.entity.CustomerOnboarding;
 import io.github.kbdemiranda.customer.onboarding.entity.CustomerPhone;
 import io.github.kbdemiranda.customer.onboarding.entity.OnboardingAuditLog;
 import io.github.kbdemiranda.customer.onboarding.enums.AuditAction;
+import io.github.kbdemiranda.customer.onboarding.enums.DocumentType;
 import io.github.kbdemiranda.customer.onboarding.enums.OnboardingStatus;
 import io.github.kbdemiranda.customer.onboarding.exception.BusinessValidationException;
 import io.github.kbdemiranda.customer.onboarding.exception.CpfAlreadyExistsException;
+import io.github.kbdemiranda.customer.onboarding.exception.InvalidDocumentException;
 import io.github.kbdemiranda.customer.onboarding.exception.ResourceNotFoundException;
 import io.github.kbdemiranda.customer.onboarding.mapper.CustomerAddressMapper;
+import io.github.kbdemiranda.customer.onboarding.mapper.CustomerDocumentMapper;
 import io.github.kbdemiranda.customer.onboarding.mapper.CustomerEmailMapper;
 import io.github.kbdemiranda.customer.onboarding.mapper.CustomerOnboardingMapper;
 import io.github.kbdemiranda.customer.onboarding.mapper.CustomerPhoneMapper;
+import io.github.kbdemiranda.customer.onboarding.repository.CustomerDocumentRepository;
 import io.github.kbdemiranda.customer.onboarding.repository.CustomerOnboardingRepository;
 import io.github.kbdemiranda.customer.onboarding.repository.OnboardingAuditLogRepository;
 import io.github.kbdemiranda.customer.onboarding.repository.specification.CustomerOnboardingSpecification;
 import jakarta.transaction.Transactional;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -34,32 +44,46 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
 @Service
 public class CustomerOnboardingServiceImpl implements CustomerOnboardingService {
 
+    private static final long MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
+    private static final Set<String> ALLOWED_CONTENT_TYPES = Set.of(
+            "application/pdf",
+            "image/png",
+            "image/jpeg"
+    );
+
     private final CustomerOnboardingRepository customerOnboardingRepository;
+    private final CustomerDocumentRepository customerDocumentRepository;
     private final OnboardingAuditLogRepository onboardingAuditLogRepository;
     private final ZipCodeService zipCodeService;
     private final CustomerOnboardingMapper customerOnboardingMapper;
     private final CustomerEmailMapper customerEmailMapper;
     private final CustomerPhoneMapper customerPhoneMapper;
     private final CustomerAddressMapper customerAddressMapper;
+    private final CustomerDocumentMapper customerDocumentMapper;
 
     public CustomerOnboardingServiceImpl(CustomerOnboardingRepository customerOnboardingRepository,
+                                         CustomerDocumentRepository customerDocumentRepository,
                                          OnboardingAuditLogRepository onboardingAuditLogRepository,
                                          ZipCodeService zipCodeService,
                                          CustomerOnboardingMapper customerOnboardingMapper,
                                          CustomerEmailMapper customerEmailMapper,
                                          CustomerPhoneMapper customerPhoneMapper,
-                                         CustomerAddressMapper customerAddressMapper) {
+                                         CustomerAddressMapper customerAddressMapper,
+                                         CustomerDocumentMapper customerDocumentMapper) {
         this.customerOnboardingRepository = customerOnboardingRepository;
+        this.customerDocumentRepository = customerDocumentRepository;
         this.onboardingAuditLogRepository = onboardingAuditLogRepository;
         this.zipCodeService = zipCodeService;
         this.customerOnboardingMapper = customerOnboardingMapper;
         this.customerEmailMapper = customerEmailMapper;
         this.customerPhoneMapper = customerPhoneMapper;
         this.customerAddressMapper = customerAddressMapper;
+        this.customerDocumentMapper = customerDocumentMapper;
     }
 
     @Override
@@ -138,6 +162,41 @@ public class CustomerOnboardingServiceImpl implements CustomerOnboardingService 
         );
     }
 
+    @Override
+    @Transactional
+    public DocumentResponse uploadDocument(UUID externalId, MultipartFile file, DocumentType documentType) {
+        CustomerOnboarding onboarding = customerOnboardingRepository.findByExternalId(externalId)
+                .orElseThrow(() -> new ResourceNotFoundException("Onboarding not found"));
+
+        validateDocument(file, documentType);
+
+        String originalFileName = file.getOriginalFilename() == null || file.getOriginalFilename().isBlank()
+                ? "document"
+                : file.getOriginalFilename();
+        Path storagePath = storeFile(externalId, originalFileName, file);
+
+        CustomerDocument document = new CustomerDocument();
+        document.setOnboarding(onboarding);
+        document.setOriginalFileName(originalFileName);
+        document.setContentType(file.getContentType());
+        document.setFileSize(file.getSize());
+        document.setDocumentType(documentType);
+        document.setStoragePath(storagePath.toString());
+        CustomerDocument savedDocument = customerDocumentRepository.save(document);
+
+        onboarding.setStatus(OnboardingStatus.DOCUMENTS_RECEIVED);
+        customerOnboardingRepository.save(onboarding);
+
+        OnboardingAuditLog auditLog = new OnboardingAuditLog();
+        auditLog.setOnboarding(onboarding);
+        auditLog.setAction(AuditAction.DOCUMENT_UPLOADED);
+        auditLog.setStatus("SUCCESS");
+        auditLog.setMessage("Document uploaded successfully");
+        onboardingAuditLogRepository.save(auditLog);
+
+        return customerDocumentMapper.toResponse(savedDocument);
+    }
+
     private CustomerAddress toEnrichedAddress(AddressRequest request, CustomerOnboarding onboarding) {
         String normalizedZipCode = normalizeDigits(request.zipCode());
         AddressData addressData = zipCodeService.getAddressOrThrow(normalizedZipCode);
@@ -205,5 +264,44 @@ public class CustomerOnboardingServiceImpl implements CustomerOnboardingService 
 
     private String normalizeDigits(String value) {
         return value == null ? "" : value.replaceAll("\\D", "");
+    }
+
+    private void validateDocument(MultipartFile file, DocumentType documentType) {
+        if (documentType == null) {
+            throw new InvalidDocumentException("Document type is required");
+        }
+        if (file == null || file.isEmpty()) {
+            throw new InvalidDocumentException("File must not be empty");
+        }
+        String contentType = file.getContentType();
+        if (contentType == null || !ALLOWED_CONTENT_TYPES.contains(contentType)) {
+            throw new InvalidDocumentException("Unsupported file type");
+        }
+        if (file.getSize() > MAX_FILE_SIZE_BYTES) {
+            throw new InvalidDocumentException("File size exceeds the maximum limit of 5MB");
+        }
+    }
+
+    private Path storeFile(UUID onboardingExternalId, String originalFileName, MultipartFile file) {
+        try {
+            Path directory = Path.of("uploads", onboardingExternalId.toString());
+            Files.createDirectories(directory);
+
+            String extension = resolveExtension(originalFileName);
+            String storedFileName = UUID.randomUUID() + extension;
+            Path destination = directory.resolve(storedFileName);
+            file.transferTo(destination);
+            return destination;
+        } catch (IOException ex) {
+            throw new InvalidDocumentException("Failed to store document");
+        }
+    }
+
+    private String resolveExtension(String fileName) {
+        int dotIndex = fileName.lastIndexOf('.');
+        if (dotIndex < 0 || dotIndex == fileName.length() - 1) {
+            return "";
+        }
+        return fileName.substring(dotIndex);
     }
 }

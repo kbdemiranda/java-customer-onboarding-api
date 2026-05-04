@@ -2,24 +2,31 @@ package io.github.kbdemiranda.customer.onboarding.service;
 
 import io.github.kbdemiranda.customer.onboarding.dto.AddressData;
 import io.github.kbdemiranda.customer.onboarding.dto.common.PageResponse;
+import io.github.kbdemiranda.customer.onboarding.dto.document.DocumentResponse;
 import io.github.kbdemiranda.customer.onboarding.dto.onboarding.AddressRequest;
 import io.github.kbdemiranda.customer.onboarding.dto.onboarding.CreateOnboardingRequest;
 import io.github.kbdemiranda.customer.onboarding.dto.onboarding.EmailRequest;
 import io.github.kbdemiranda.customer.onboarding.dto.onboarding.OnboardingFilter;
 import io.github.kbdemiranda.customer.onboarding.dto.onboarding.OnboardingResponse;
 import io.github.kbdemiranda.customer.onboarding.dto.onboarding.PhoneRequest;
+import io.github.kbdemiranda.customer.onboarding.entity.CustomerDocument;
 import io.github.kbdemiranda.customer.onboarding.entity.CustomerOnboarding;
+import io.github.kbdemiranda.customer.onboarding.enums.DocumentType;
 import io.github.kbdemiranda.customer.onboarding.enums.OnboardingStatus;
 import io.github.kbdemiranda.customer.onboarding.exception.BusinessValidationException;
 import io.github.kbdemiranda.customer.onboarding.exception.CpfAlreadyExistsException;
+import io.github.kbdemiranda.customer.onboarding.exception.InvalidDocumentException;
 import io.github.kbdemiranda.customer.onboarding.exception.ResourceNotFoundException;
 import io.github.kbdemiranda.customer.onboarding.exception.ZipCodeNotFoundException;
 import io.github.kbdemiranda.customer.onboarding.mapper.CustomerAddressMapper;
+import io.github.kbdemiranda.customer.onboarding.mapper.CustomerDocumentMapper;
 import io.github.kbdemiranda.customer.onboarding.mapper.CustomerEmailMapper;
 import io.github.kbdemiranda.customer.onboarding.mapper.CustomerOnboardingMapper;
 import io.github.kbdemiranda.customer.onboarding.mapper.CustomerPhoneMapper;
+import io.github.kbdemiranda.customer.onboarding.repository.CustomerDocumentRepository;
 import io.github.kbdemiranda.customer.onboarding.repository.CustomerOnboardingRepository;
 import io.github.kbdemiranda.customer.onboarding.repository.OnboardingAuditLogRepository;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -29,8 +36,10 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.mock.web.MockMultipartFile;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -41,6 +50,7 @@ import static org.mockito.Mockito.when;
 class CustomerOnboardingServiceImplTest {
 
     private final CustomerOnboardingRepository customerOnboardingRepository = mock(CustomerOnboardingRepository.class);
+    private final CustomerDocumentRepository customerDocumentRepository = mock(CustomerDocumentRepository.class);
     private final OnboardingAuditLogRepository onboardingAuditLogRepository = mock(OnboardingAuditLogRepository.class);
     private final ZipCodeService zipCodeService = mock(ZipCodeService.class);
 
@@ -49,6 +59,7 @@ class CustomerOnboardingServiceImplTest {
     @BeforeEach
     void setUp() {
         CustomerAddressMapper customerAddressMapper = new CustomerAddressMapper();
+        CustomerDocumentMapper customerDocumentMapper = new CustomerDocumentMapper();
         CustomerEmailMapper customerEmailMapper = new CustomerEmailMapper();
         CustomerPhoneMapper customerPhoneMapper = new CustomerPhoneMapper();
         CustomerOnboardingMapper customerOnboardingMapper =
@@ -56,12 +67,14 @@ class CustomerOnboardingServiceImplTest {
 
         service = new CustomerOnboardingServiceImpl(
                 customerOnboardingRepository,
+                customerDocumentRepository,
                 onboardingAuditLogRepository,
                 zipCodeService,
                 customerOnboardingMapper,
                 customerEmailMapper,
                 customerPhoneMapper,
-                customerAddressMapper
+                customerAddressMapper,
+                customerDocumentMapper
         );
     }
 
@@ -232,6 +245,97 @@ class CustomerOnboardingServiceImplTest {
                 assertThrows(ResourceNotFoundException.class, () -> service.getByExternalId(externalId));
 
         assertEquals("Onboarding not found", exception.getMessage());
+    }
+
+    @Test
+    void shouldUploadDocumentAndUpdateStatusAndCreateAudit() {
+        UUID onboardingExternalId = UUID.randomUUID();
+        CustomerOnboarding onboarding = onboardingEntity("12345678909", OnboardingStatus.DOCUMENTS_PENDING);
+        onboarding.setExternalId(onboardingExternalId);
+
+        MockMultipartFile file = new MockMultipartFile(
+                "file",
+                "document.pdf",
+                "application/pdf",
+                "content".getBytes(StandardCharsets.UTF_8)
+        );
+
+        when(customerOnboardingRepository.findByExternalId(onboardingExternalId)).thenReturn(java.util.Optional.of(onboarding));
+        when(customerDocumentRepository.save(any(CustomerDocument.class))).thenAnswer(invocation -> {
+            CustomerDocument document = invocation.getArgument(0);
+            document.setExternalId(UUID.randomUUID());
+            return document;
+        });
+
+        DocumentResponse response = service.uploadDocument(onboardingExternalId, file, DocumentType.CPF);
+
+        assertEquals("document.pdf", response.originalFileName());
+        assertEquals(DocumentType.CPF, response.documentType());
+        assertEquals(OnboardingStatus.DOCUMENTS_RECEIVED, onboarding.getStatus());
+        assertNotNull(response.storagePath());
+        verify(customerOnboardingRepository).save(onboarding);
+        verify(onboardingAuditLogRepository).save(any());
+    }
+
+    @Test
+    void shouldThrowWhenUploadingDocumentToNonExistingOnboarding() {
+        UUID onboardingExternalId = UUID.randomUUID();
+        MockMultipartFile file = new MockMultipartFile(
+                "file",
+                "document.pdf",
+                "application/pdf",
+                "content".getBytes(StandardCharsets.UTF_8)
+        );
+        when(customerOnboardingRepository.findByExternalId(onboardingExternalId)).thenReturn(java.util.Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class,
+                () -> service.uploadDocument(onboardingExternalId, file, DocumentType.CPF));
+    }
+
+    @Test
+    void shouldThrowWhenUploadedFileIsEmpty() {
+        UUID onboardingExternalId = UUID.randomUUID();
+        CustomerOnboarding onboarding = onboardingEntity("12345678909", OnboardingStatus.DOCUMENTS_PENDING);
+        onboarding.setExternalId(onboardingExternalId);
+        MockMultipartFile file = new MockMultipartFile("file", "document.pdf", "application/pdf", new byte[0]);
+        when(customerOnboardingRepository.findByExternalId(onboardingExternalId)).thenReturn(java.util.Optional.of(onboarding));
+
+        assertThrows(InvalidDocumentException.class,
+                () -> service.uploadDocument(onboardingExternalId, file, DocumentType.CPF));
+    }
+
+    @Test
+    void shouldThrowWhenUploadedFileHasUnsupportedContentType() {
+        UUID onboardingExternalId = UUID.randomUUID();
+        CustomerOnboarding onboarding = onboardingEntity("12345678909", OnboardingStatus.DOCUMENTS_PENDING);
+        onboarding.setExternalId(onboardingExternalId);
+        MockMultipartFile file = new MockMultipartFile(
+                "file",
+                "document.txt",
+                "text/plain",
+                "content".getBytes(StandardCharsets.UTF_8)
+        );
+        when(customerOnboardingRepository.findByExternalId(onboardingExternalId)).thenReturn(java.util.Optional.of(onboarding));
+
+        assertThrows(InvalidDocumentException.class,
+                () -> service.uploadDocument(onboardingExternalId, file, DocumentType.CPF));
+    }
+
+    @Test
+    void shouldThrowWhenUploadedFileExceedsMaxSize() {
+        UUID onboardingExternalId = UUID.randomUUID();
+        CustomerOnboarding onboarding = onboardingEntity("12345678909", OnboardingStatus.DOCUMENTS_PENDING);
+        onboarding.setExternalId(onboardingExternalId);
+        MockMultipartFile file = new MockMultipartFile(
+                "file",
+                "document.pdf",
+                "application/pdf",
+                new byte[(5 * 1024 * 1024) + 1]
+        );
+        when(customerOnboardingRepository.findByExternalId(onboardingExternalId)).thenReturn(java.util.Optional.of(onboarding));
+
+        assertThrows(InvalidDocumentException.class,
+                () -> service.uploadDocument(onboardingExternalId, file, DocumentType.CPF));
     }
 
     private CreateOnboardingRequest validRequest() {

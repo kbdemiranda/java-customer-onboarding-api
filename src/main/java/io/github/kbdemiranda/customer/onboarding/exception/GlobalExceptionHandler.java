@@ -29,6 +29,12 @@ public class GlobalExceptionHandler {
         return buildErrorResponse(HttpStatus.BAD_REQUEST, ex.getMessage(), request.getRequestURI());
     }
 
+    @ExceptionHandler(InvalidDocumentException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidDocument(InvalidDocumentException ex,
+                                                               HttpServletRequest request) {
+        return buildErrorResponse(HttpStatus.BAD_REQUEST, ex.getMessage(), request.getRequestURI());
+    }
+
     @ExceptionHandler(ZipCodeNotFoundException.class)
     public ResponseEntity<ErrorResponse> handleZipCodeNotFound(ZipCodeNotFoundException ex,
                                                                 HttpServletRequest request) {

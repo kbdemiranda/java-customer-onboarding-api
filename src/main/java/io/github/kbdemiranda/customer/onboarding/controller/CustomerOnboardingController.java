@@ -1,6 +1,8 @@
 package io.github.kbdemiranda.customer.onboarding.controller;
 
 import io.github.kbdemiranda.customer.onboarding.dto.common.PageResponse;
+import io.github.kbdemiranda.customer.onboarding.dto.document.DocumentResponse;
+import io.github.kbdemiranda.customer.onboarding.enums.DocumentType;
 import io.github.kbdemiranda.customer.onboarding.dto.onboarding.CreateOnboardingRequest;
 import io.github.kbdemiranda.customer.onboarding.dto.onboarding.OnboardingFilter;
 import io.github.kbdemiranda.customer.onboarding.dto.onboarding.OnboardingResponse;
@@ -14,9 +16,12 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @Validated
@@ -32,6 +37,14 @@ public class CustomerOnboardingController {
     @PostMapping
     public ResponseEntity<OnboardingResponse> createOnboarding(@Valid @RequestBody CreateOnboardingRequest request) {
         OnboardingResponse response = customerOnboardingService.createOnboarding(request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @PostMapping(path = "/{externalId}/documents", consumes = "multipart/form-data")
+    public ResponseEntity<DocumentResponse> uploadDocument(@PathVariable UUID externalId,
+                                                           @RequestPart("file") MultipartFile file,
+                                                           @RequestParam("documentType") DocumentType documentType) {
+        DocumentResponse response = customerOnboardingService.uploadDocument(externalId, file, documentType);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 

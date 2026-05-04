@@ -1,15 +1,18 @@
 package io.github.kbdemiranda.customer.onboarding.controller;
 
 import io.github.kbdemiranda.customer.onboarding.dto.common.PageResponse;
+import io.github.kbdemiranda.customer.onboarding.dto.document.DocumentResponse;
 import io.github.kbdemiranda.customer.onboarding.dto.onboarding.AddressResponse;
 import io.github.kbdemiranda.customer.onboarding.dto.onboarding.EmailResponse;
 import io.github.kbdemiranda.customer.onboarding.dto.onboarding.OnboardingFilter;
 import io.github.kbdemiranda.customer.onboarding.dto.onboarding.OnboardingResponse;
 import io.github.kbdemiranda.customer.onboarding.dto.onboarding.PhoneResponse;
+import io.github.kbdemiranda.customer.onboarding.enums.DocumentType;
 import io.github.kbdemiranda.customer.onboarding.enums.OnboardingStatus;
 import io.github.kbdemiranda.customer.onboarding.exception.BusinessValidationException;
 import io.github.kbdemiranda.customer.onboarding.exception.CpfAlreadyExistsException;
 import io.github.kbdemiranda.customer.onboarding.exception.GlobalExceptionHandler;
+import io.github.kbdemiranda.customer.onboarding.exception.InvalidDocumentException;
 import io.github.kbdemiranda.customer.onboarding.exception.ResourceNotFoundException;
 import io.github.kbdemiranda.customer.onboarding.exception.ZipCodeNotFoundException;
 import io.github.kbdemiranda.customer.onboarding.service.CustomerOnboardingService;
@@ -21,6 +24,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -29,6 +33,7 @@ import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -63,6 +68,73 @@ class CustomerOnboardingControllerTest {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.status").value("DOCUMENTS_PENDING"))
                 .andExpect(jsonPath("$.cpf").value("12345678909"));
+    }
+
+    @Test
+    void shouldReturnCreatedWhenDocumentIsUploaded() throws Exception {
+        UUID onboardingExternalId = UUID.randomUUID();
+        DocumentResponse response = new DocumentResponse(
+                UUID.randomUUID(),
+                "document.pdf",
+                "application/pdf",
+                7L,
+                DocumentType.CPF,
+                "uploads/" + onboardingExternalId + "/stored.pdf",
+                LocalDateTime.now()
+        );
+        when(customerOnboardingService.uploadDocument(any(), any(), any())).thenReturn(response);
+
+        MockMultipartFile file = new MockMultipartFile("file", "document.pdf", "application/pdf", "content".getBytes());
+        mockMvc.perform(multipart("/api/v1/onboardings/{externalId}/documents", onboardingExternalId)
+                        .file(file)
+                        .param("documentType", "CPF"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.documentType").value("CPF"))
+                .andExpect(jsonPath("$.originalFileName").value("document.pdf"));
+    }
+
+    @Test
+    void shouldReturnBadRequestWhenDocumentTypeIsInvalidOnUpload() throws Exception {
+        UUID onboardingExternalId = UUID.randomUUID();
+        MockMultipartFile file = new MockMultipartFile("file", "document.pdf", "application/pdf", "content".getBytes());
+
+        mockMvc.perform(multipart("/api/v1/onboardings/{externalId}/documents", onboardingExternalId)
+                        .file(file)
+                        .param("documentType", "INVALID_TYPE"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400));
+    }
+
+    @Test
+    void shouldReturnBadRequestWhenInvalidDocumentExceptionIsThrownOnUpload() throws Exception {
+        UUID onboardingExternalId = UUID.randomUUID();
+        when(customerOnboardingService.uploadDocument(any(), any(), any()))
+                .thenThrow(new InvalidDocumentException("Unsupported file type"));
+
+        MockMultipartFile file = new MockMultipartFile("file", "document.txt", "text/plain", "content".getBytes());
+
+        mockMvc.perform(multipart("/api/v1/onboardings/{externalId}/documents", onboardingExternalId)
+                        .file(file)
+                        .param("documentType", "CPF"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.message").value("Unsupported file type"));
+    }
+
+    @Test
+    void shouldReturnNotFoundWhenOnboardingDoesNotExistOnUpload() throws Exception {
+        UUID onboardingExternalId = UUID.randomUUID();
+        when(customerOnboardingService.uploadDocument(any(), any(), any()))
+                .thenThrow(new ResourceNotFoundException("Onboarding not found"));
+
+        MockMultipartFile file = new MockMultipartFile("file", "document.pdf", "application/pdf", "content".getBytes());
+
+        mockMvc.perform(multipart("/api/v1/onboardings/{externalId}/documents", onboardingExternalId)
+                        .file(file)
+                        .param("documentType", "CPF"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.status").value(404))
+                .andExpect(jsonPath("$.message").value("Onboarding not found"));
     }
 
     @Test
