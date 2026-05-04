@@ -44,7 +44,6 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.mock.web.MockMultipartFile;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -306,6 +305,61 @@ class CustomerOnboardingServiceImplTest {
     }
 
     @Test
+    void shouldReturnDocumentsOrderedByCreatedAtDescWhenOnboardingExists() {
+        UUID onboardingExternalId = UUID.randomUUID();
+        CustomerOnboarding onboarding = onboardingEntity("12345678909", OnboardingStatus.DOCUMENTS_RECEIVED);
+        onboarding.setExternalId(onboardingExternalId);
+
+        CustomerDocument newestDocument = new CustomerDocument();
+        newestDocument.setExternalId(UUID.randomUUID());
+        newestDocument.setDocumentType(DocumentType.CPF);
+        newestDocument.setOriginalFileName("cpf.pdf");
+        newestDocument.setContentType("application/pdf");
+        newestDocument.setFileSize(1200L);
+        newestDocument.setStoragePath("uploads/newest.pdf");
+        newestDocument.setCreatedAt(LocalDateTime.of(2026, 5, 4, 12, 30));
+
+        CustomerDocument oldestDocument = new CustomerDocument();
+        oldestDocument.setExternalId(UUID.randomUUID());
+        oldestDocument.setDocumentType(DocumentType.RG);
+        oldestDocument.setOriginalFileName("rg.png");
+        oldestDocument.setContentType("image/png");
+        oldestDocument.setFileSize(900L);
+        oldestDocument.setStoragePath("uploads/oldest.png");
+        oldestDocument.setCreatedAt(LocalDateTime.of(2026, 5, 3, 9, 0));
+
+        when(customerOnboardingRepository.findByExternalId(onboardingExternalId)).thenReturn(java.util.Optional.of(onboarding));
+        when(customerDocumentRepository.findByOnboardingExternalIdOrderByCreatedAtDesc(onboardingExternalId))
+                .thenReturn(List.of(newestDocument, oldestDocument));
+
+        List<DocumentResponse> response = service.getDocuments(onboardingExternalId);
+
+        assertEquals(2, response.size());
+        assertEquals(newestDocument.getExternalId(), response.get(0).externalId());
+        assertEquals(newestDocument.getDocumentType(), response.get(0).documentType());
+        assertEquals(newestDocument.getOriginalFileName(), response.get(0).originalFileName());
+        assertEquals(newestDocument.getContentType(), response.get(0).contentType());
+        assertEquals(newestDocument.getFileSize(), response.get(0).fileSize());
+        assertEquals(newestDocument.getCreatedAt(), response.get(0).createdAt());
+
+        assertEquals(oldestDocument.getExternalId(), response.get(1).externalId());
+        assertEquals(oldestDocument.getCreatedAt(), response.get(1).createdAt());
+    }
+
+    @Test
+    void shouldThrowWhenGettingDocumentsForNonExistingOnboarding() {
+        UUID onboardingExternalId = UUID.randomUUID();
+        when(customerOnboardingRepository.findByExternalId(onboardingExternalId)).thenReturn(java.util.Optional.empty());
+
+        ResourceNotFoundException exception =
+                assertThrows(ResourceNotFoundException.class, () -> service.getDocuments(onboardingExternalId));
+
+        assertEquals("Onboarding not found", exception.getMessage());
+        verify(customerDocumentRepository, never())
+                .findByOnboardingExternalIdOrderByCreatedAtDesc(any(UUID.class));
+    }
+
+    @Test
     void shouldUploadDocumentAndUpdateStatusAndCreateAudit() {
         UUID onboardingExternalId = UUID.randomUUID();
         CustomerOnboarding onboarding = onboardingEntity("12345678909", OnboardingStatus.DOCUMENTS_PENDING);
@@ -330,7 +384,6 @@ class CustomerOnboardingServiceImplTest {
         assertEquals("document.pdf", response.originalFileName());
         assertEquals(DocumentType.CPF, response.documentType());
         assertEquals(OnboardingStatus.DOCUMENTS_RECEIVED, onboarding.getStatus());
-        assertNotNull(response.storagePath());
         verify(customerOnboardingRepository).save(onboarding);
         verify(onboardingAuditLogRepository).save(any());
     }

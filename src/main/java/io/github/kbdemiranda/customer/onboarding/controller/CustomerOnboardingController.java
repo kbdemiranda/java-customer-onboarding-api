@@ -67,4 +67,10 @@ public class CustomerOnboardingController {
         List<AuditLogResponse> response = customerOnboardingService.getAuditLogs(externalId);
         return ResponseEntity.ok(response);
     }
+
+    @GetMapping("/{externalId}/documents")
+    public ResponseEntity<List<DocumentResponse>> getDocuments(@PathVariable UUID externalId) {
+        List<DocumentResponse> response = customerOnboardingService.getDocuments(externalId);
+        return ResponseEntity.ok(response);
+    }
 }

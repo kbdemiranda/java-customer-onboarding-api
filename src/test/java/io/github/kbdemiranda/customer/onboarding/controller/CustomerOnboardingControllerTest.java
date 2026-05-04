@@ -77,11 +77,10 @@ class CustomerOnboardingControllerTest {
         UUID onboardingExternalId = UUID.randomUUID();
         DocumentResponse response = new DocumentResponse(
                 UUID.randomUUID(),
+                DocumentType.CPF,
                 "document.pdf",
                 "application/pdf",
                 7L,
-                DocumentType.CPF,
-                "uploads/" + onboardingExternalId + "/stored.pdf",
                 LocalDateTime.now()
         );
         when(customerOnboardingService.uploadDocument(any(), any(), any())).thenReturn(response);
@@ -134,6 +133,51 @@ class CustomerOnboardingControllerTest {
         mockMvc.perform(multipart("/api/v1/onboardings/{externalId}/documents", onboardingExternalId)
                         .file(file)
                         .param("documentType", "CPF"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.status").value(404))
+                .andExpect(jsonPath("$.message").value("Onboarding not found"));
+    }
+
+    @Test
+    void shouldReturnOkWhenGettingDocumentsByOnboardingExternalId() throws Exception {
+        UUID onboardingExternalId = UUID.randomUUID();
+        DocumentResponse firstDocument = new DocumentResponse(
+                UUID.randomUUID(),
+                DocumentType.CPF,
+                "cpf.pdf",
+                "application/pdf",
+                1200L,
+                LocalDateTime.of(2026, 5, 4, 10, 0)
+        );
+        DocumentResponse secondDocument = new DocumentResponse(
+                UUID.randomUUID(),
+                DocumentType.RG,
+                "rg.png",
+                "image/png",
+                2400L,
+                LocalDateTime.of(2026, 5, 3, 10, 0)
+        );
+        when(customerOnboardingService.getDocuments(onboardingExternalId)).thenReturn(List.of(firstDocument, secondDocument));
+
+        mockMvc.perform(get("/api/v1/onboardings/{externalId}/documents", onboardingExternalId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].externalId").value(firstDocument.externalId().toString()))
+                .andExpect(jsonPath("$[0].documentType").value("CPF"))
+                .andExpect(jsonPath("$[0].originalFileName").value("cpf.pdf"))
+                .andExpect(jsonPath("$[0].contentType").value("application/pdf"))
+                .andExpect(jsonPath("$[0].fileSize").value(1200))
+                .andExpect(jsonPath("$[0].storagePath").doesNotExist())
+                .andExpect(jsonPath("$[1].externalId").value(secondDocument.externalId().toString()))
+                .andExpect(jsonPath("$[1].documentType").value("RG"));
+    }
+
+    @Test
+    void shouldReturnNotFoundWhenGettingDocumentsForNonExistingOnboarding() throws Exception {
+        UUID onboardingExternalId = UUID.randomUUID();
+        when(customerOnboardingService.getDocuments(onboardingExternalId))
+                .thenThrow(new ResourceNotFoundException("Onboarding not found"));
+
+        mockMvc.perform(get("/api/v1/onboardings/{externalId}/documents", onboardingExternalId))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.status").value(404))
                 .andExpect(jsonPath("$.message").value("Onboarding not found"));

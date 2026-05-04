@@ -203,6 +203,16 @@ public class CustomerOnboardingServiceImpl implements CustomerOnboardingService 
     }
 
     @Override
+    public List<DocumentResponse> getDocuments(UUID onboardingExternalId) {
+        customerOnboardingRepository.findByExternalId(onboardingExternalId)
+                .orElseThrow(() -> new ResourceNotFoundException("Onboarding not found"));
+
+        List<CustomerDocument> documents =
+                customerDocumentRepository.findByOnboardingExternalIdOrderByCreatedAtDesc(onboardingExternalId);
+        return customerDocumentMapper.toResponseList(documents);
+    }
+
+    @Override
     public List<AuditLogResponse> getAuditLogs(UUID onboardingExternalId) {
         customerOnboardingRepository.findByExternalId(onboardingExternalId)
                 .orElseThrow(() -> new ResourceNotFoundException("Onboarding not found"));

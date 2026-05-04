@@ -21,5 +21,7 @@ public interface CustomerOnboardingService {
 
     DocumentResponse uploadDocument(UUID externalId, MultipartFile file, DocumentType documentType);
 
+    List<DocumentResponse> getDocuments(UUID onboardingExternalId);
+
     List<AuditLogResponse> getAuditLogs(UUID onboardingExternalId);
 }

@@ -21,11 +21,10 @@ public class CustomerDocumentMapper {
     public DocumentResponse toResponse(CustomerDocument entity) {
         return new DocumentResponse(
                 entity.getExternalId(),
+                entity.getDocumentType(),
                 entity.getOriginalFileName(),
                 entity.getContentType(),
                 entity.getFileSize(),
-                entity.getDocumentType(),
-                entity.getStoragePath(),
                 entity.getCreatedAt()
         );
     }

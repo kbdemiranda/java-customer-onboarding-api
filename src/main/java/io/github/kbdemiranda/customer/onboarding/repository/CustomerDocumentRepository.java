@@ -2,6 +2,7 @@ package io.github.kbdemiranda.customer.onboarding.repository;
 
 import io.github.kbdemiranda.customer.onboarding.entity.CustomerDocument;
 import io.github.kbdemiranda.customer.onboarding.enums.DocumentType;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
@@ -13,6 +14,8 @@ public interface CustomerDocumentRepository extends JpaRepository<CustomerDocume
     Optional<CustomerDocument> findByExternalId(UUID externalId);
 
     Page<CustomerDocument> findByOnboardingExternalId(UUID onboardingExternalId, Pageable pageable);
+
+    List<CustomerDocument> findByOnboardingExternalIdOrderByCreatedAtDesc(UUID onboardingExternalId);
 
     Page<CustomerDocument> findByOnboardingExternalIdAndDocumentType(
             UUID onboardingExternalId,

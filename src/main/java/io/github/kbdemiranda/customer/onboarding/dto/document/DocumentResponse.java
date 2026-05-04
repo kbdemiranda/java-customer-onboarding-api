@@ -6,11 +6,10 @@ import java.util.UUID;
 
 public record DocumentResponse(
         UUID externalId,
+        DocumentType documentType,
         String originalFileName,
         String contentType,
         Long fileSize,
-        DocumentType documentType,
-        String storagePath,
         LocalDateTime createdAt
 ) {
 }
