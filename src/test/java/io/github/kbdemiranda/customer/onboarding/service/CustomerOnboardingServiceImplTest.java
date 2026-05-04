@@ -12,6 +12,7 @@ import io.github.kbdemiranda.customer.onboarding.entity.CustomerOnboarding;
 import io.github.kbdemiranda.customer.onboarding.enums.OnboardingStatus;
 import io.github.kbdemiranda.customer.onboarding.exception.BusinessValidationException;
 import io.github.kbdemiranda.customer.onboarding.exception.CpfAlreadyExistsException;
+import io.github.kbdemiranda.customer.onboarding.exception.ResourceNotFoundException;
 import io.github.kbdemiranda.customer.onboarding.exception.ZipCodeNotFoundException;
 import io.github.kbdemiranda.customer.onboarding.mapper.CustomerAddressMapper;
 import io.github.kbdemiranda.customer.onboarding.mapper.CustomerEmailMapper;
@@ -205,6 +206,32 @@ class CustomerOnboardingServiceImplTest {
 
         verify(customerOnboardingRepository)
                 .findAll(any(Specification.class), eq(PageRequest.of(0, 10, Sort.by(Sort.Direction.DESC, "createdAt"))));
+    }
+
+    @Test
+    void shouldGetOnboardingByExternalId() {
+        UUID externalId = UUID.randomUUID();
+        CustomerOnboarding onboarding = onboardingEntity("12345678909", OnboardingStatus.DOCUMENTS_PENDING);
+        onboarding.setExternalId(externalId);
+
+        when(customerOnboardingRepository.findByExternalId(externalId)).thenReturn(java.util.Optional.of(onboarding));
+
+        OnboardingResponse response = service.getByExternalId(externalId);
+
+        assertEquals(externalId, response.externalId());
+        assertEquals("12345678909", response.cpf());
+        assertEquals(OnboardingStatus.DOCUMENTS_PENDING, response.status());
+    }
+
+    @Test
+    void shouldThrowWhenOnboardingByExternalIdIsNotFound() {
+        UUID externalId = UUID.randomUUID();
+        when(customerOnboardingRepository.findByExternalId(externalId)).thenReturn(java.util.Optional.empty());
+
+        ResourceNotFoundException exception =
+                assertThrows(ResourceNotFoundException.class, () -> service.getByExternalId(externalId));
+
+        assertEquals("Onboarding not found", exception.getMessage());
     }
 
     private CreateOnboardingRequest validRequest() {

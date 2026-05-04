@@ -17,6 +17,7 @@ import io.github.kbdemiranda.customer.onboarding.enums.AuditAction;
 import io.github.kbdemiranda.customer.onboarding.enums.OnboardingStatus;
 import io.github.kbdemiranda.customer.onboarding.exception.BusinessValidationException;
 import io.github.kbdemiranda.customer.onboarding.exception.CpfAlreadyExistsException;
+import io.github.kbdemiranda.customer.onboarding.exception.ResourceNotFoundException;
 import io.github.kbdemiranda.customer.onboarding.mapper.CustomerAddressMapper;
 import io.github.kbdemiranda.customer.onboarding.mapper.CustomerEmailMapper;
 import io.github.kbdemiranda.customer.onboarding.mapper.CustomerOnboardingMapper;
@@ -26,6 +27,7 @@ import io.github.kbdemiranda.customer.onboarding.repository.OnboardingAuditLogRe
 import io.github.kbdemiranda.customer.onboarding.repository.specification.CustomerOnboardingSpecification;
 import jakarta.transaction.Transactional;
 import java.util.List;
+import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -100,6 +102,13 @@ public class CustomerOnboardingServiceImpl implements CustomerOnboardingService 
         onboardingAuditLogRepository.save(auditLog);
 
         return customerOnboardingMapper.toResponse(savedOnboarding);
+    }
+
+    @Override
+    public OnboardingResponse getByExternalId(UUID externalId) {
+        CustomerOnboarding onboarding = customerOnboardingRepository.findByExternalId(externalId)
+                .orElseThrow(() -> new ResourceNotFoundException("Onboarding not found"));
+        return customerOnboardingMapper.toResponse(onboarding);
     }
 
     @Override

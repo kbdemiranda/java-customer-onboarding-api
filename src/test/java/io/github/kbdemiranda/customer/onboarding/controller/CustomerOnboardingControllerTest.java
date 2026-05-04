@@ -10,6 +10,7 @@ import io.github.kbdemiranda.customer.onboarding.enums.OnboardingStatus;
 import io.github.kbdemiranda.customer.onboarding.exception.BusinessValidationException;
 import io.github.kbdemiranda.customer.onboarding.exception.CpfAlreadyExistsException;
 import io.github.kbdemiranda.customer.onboarding.exception.GlobalExceptionHandler;
+import io.github.kbdemiranda.customer.onboarding.exception.ResourceNotFoundException;
 import io.github.kbdemiranda.customer.onboarding.exception.ZipCodeNotFoundException;
 import io.github.kbdemiranda.customer.onboarding.service.CustomerOnboardingService;
 import java.time.LocalDateTime;
@@ -147,6 +148,40 @@ class CustomerOnboardingControllerTest {
     }
 
     @Test
+    void shouldReturnOkWhenGettingOnboardingByExternalId() throws Exception {
+        UUID externalId = UUID.randomUUID();
+        OnboardingResponse response = new OnboardingResponse(
+                externalId,
+                "John Doe",
+                "12345678909",
+                OnboardingStatus.DOCUMENTS_PENDING,
+                List.of(new EmailResponse(UUID.randomUUID(), "john@example.com", true)),
+                List.of(new PhoneResponse(UUID.randomUUID(), "11999999999", false)),
+                List.of(new AddressResponse(UUID.randomUUID(), "01001000", "Praca da Se", "100", "Apt 10", "Se", "Sao Paulo", "SP", true)),
+                LocalDateTime.now()
+        );
+        when(customerOnboardingService.getByExternalId(externalId)).thenReturn(response);
+
+        mockMvc.perform(get("/api/v1/onboardings/{externalId}", externalId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.externalId").value(externalId.toString()))
+                .andExpect(jsonPath("$.status").value("DOCUMENTS_PENDING"))
+                .andExpect(jsonPath("$.cpf").value("12345678909"));
+    }
+
+    @Test
+    void shouldReturnNotFoundWhenOnboardingByExternalIdDoesNotExist() throws Exception {
+        UUID externalId = UUID.randomUUID();
+        when(customerOnboardingService.getByExternalId(externalId))
+                .thenThrow(new ResourceNotFoundException("Onboarding not found"));
+
+        mockMvc.perform(get("/api/v1/onboardings/{externalId}", externalId))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.status").value(404))
+                .andExpect(jsonPath("$.message").value("Onboarding not found"));
+    }
+
+    @Test
     void shouldBindFormattedCpfFilterWhenListingOnboardings() throws Exception {
         PageResponse<OnboardingResponse> response = new PageResponse<>(List.of(), 0, 10, 0, 0);
         when(customerOnboardingService.listOnboardings(any(OnboardingFilter.class))).thenReturn(response);
@@ -180,6 +215,13 @@ class CustomerOnboardingControllerTest {
     void shouldReturnBadRequestWhenSizeExceedsLimit() throws Exception {
         mockMvc.perform(get("/api/v1/onboardings")
                         .param("size", "101"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400));
+    }
+
+    @Test
+    void shouldReturnBadRequestWhenExternalIdIsMalformed() throws Exception {
+        mockMvc.perform(get("/api/v1/onboardings/{externalId}", "not-a-uuid"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.status").value(400));
     }
