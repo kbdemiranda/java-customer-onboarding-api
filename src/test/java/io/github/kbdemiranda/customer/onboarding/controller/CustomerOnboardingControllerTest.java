@@ -1,5 +1,6 @@
 package io.github.kbdemiranda.customer.onboarding.controller;
 
+import io.github.kbdemiranda.customer.onboarding.dto.audit.AuditLogResponse;
 import io.github.kbdemiranda.customer.onboarding.dto.common.PageResponse;
 import io.github.kbdemiranda.customer.onboarding.dto.document.DocumentResponse;
 import io.github.kbdemiranda.customer.onboarding.dto.onboarding.AddressResponse;
@@ -9,6 +10,7 @@ import io.github.kbdemiranda.customer.onboarding.dto.onboarding.OnboardingRespon
 import io.github.kbdemiranda.customer.onboarding.dto.onboarding.PhoneResponse;
 import io.github.kbdemiranda.customer.onboarding.enums.DocumentType;
 import io.github.kbdemiranda.customer.onboarding.enums.OnboardingStatus;
+import io.github.kbdemiranda.customer.onboarding.enums.AuditAction;
 import io.github.kbdemiranda.customer.onboarding.exception.BusinessValidationException;
 import io.github.kbdemiranda.customer.onboarding.exception.CpfAlreadyExistsException;
 import io.github.kbdemiranda.customer.onboarding.exception.GlobalExceptionHandler;
@@ -248,6 +250,47 @@ class CustomerOnboardingControllerTest {
                 .thenThrow(new ResourceNotFoundException("Onboarding not found"));
 
         mockMvc.perform(get("/api/v1/onboardings/{externalId}", externalId))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.status").value(404))
+                .andExpect(jsonPath("$.message").value("Onboarding not found"));
+    }
+
+    @Test
+    void shouldReturnOkWhenGettingAuditLogsByOnboardingExternalId() throws Exception {
+        UUID onboardingExternalId = UUID.randomUUID();
+        AuditLogResponse firstLog = new AuditLogResponse(
+                UUID.randomUUID(),
+                AuditAction.DOCUMENT_UPLOADED,
+                "SUCCESS",
+                "Document uploaded successfully",
+                LocalDateTime.of(2026, 5, 4, 12, 30)
+        );
+        AuditLogResponse secondLog = new AuditLogResponse(
+                UUID.randomUUID(),
+                AuditAction.ONBOARDING_CREATED,
+                "SUCCESS",
+                "Onboarding created successfully",
+                LocalDateTime.of(2026, 5, 3, 9, 0)
+        );
+        when(customerOnboardingService.getAuditLogs(onboardingExternalId)).thenReturn(List.of(firstLog, secondLog));
+
+        mockMvc.perform(get("/api/v1/onboardings/{externalId}/audit-logs", onboardingExternalId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].externalId").value(firstLog.externalId().toString()))
+                .andExpect(jsonPath("$[0].action").value("DOCUMENT_UPLOADED"))
+                .andExpect(jsonPath("$[0].status").value("SUCCESS"))
+                .andExpect(jsonPath("$[0].message").value("Document uploaded successfully"))
+                .andExpect(jsonPath("$[1].externalId").value(secondLog.externalId().toString()))
+                .andExpect(jsonPath("$[1].action").value("ONBOARDING_CREATED"));
+    }
+
+    @Test
+    void shouldReturnNotFoundWhenGettingAuditLogsForNonExistingOnboarding() throws Exception {
+        UUID onboardingExternalId = UUID.randomUUID();
+        when(customerOnboardingService.getAuditLogs(onboardingExternalId))
+                .thenThrow(new ResourceNotFoundException("Onboarding not found"));
+
+        mockMvc.perform(get("/api/v1/onboardings/{externalId}/audit-logs", onboardingExternalId))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.status").value(404))
                 .andExpect(jsonPath("$.message").value("Onboarding not found"));

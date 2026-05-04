@@ -1,6 +1,7 @@
 package io.github.kbdemiranda.customer.onboarding.repository;
 
 import io.github.kbdemiranda.customer.onboarding.entity.OnboardingAuditLog;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
@@ -12,4 +13,6 @@ public interface OnboardingAuditLogRepository extends JpaRepository<OnboardingAu
     Optional<OnboardingAuditLog> findByExternalId(UUID externalId);
 
     Page<OnboardingAuditLog> findByOnboardingExternalId(UUID onboardingExternalId, Pageable pageable);
+
+    List<OnboardingAuditLog> findByOnboardingExternalIdOrderByCreatedAtDesc(UUID onboardingExternalId);
 }

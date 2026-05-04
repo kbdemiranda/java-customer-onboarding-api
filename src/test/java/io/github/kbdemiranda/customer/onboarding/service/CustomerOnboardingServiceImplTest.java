@@ -1,6 +1,7 @@
 package io.github.kbdemiranda.customer.onboarding.service;
 
 import io.github.kbdemiranda.customer.onboarding.dto.AddressData;
+import io.github.kbdemiranda.customer.onboarding.dto.audit.AuditLogResponse;
 import io.github.kbdemiranda.customer.onboarding.dto.common.PageResponse;
 import io.github.kbdemiranda.customer.onboarding.dto.document.DocumentResponse;
 import io.github.kbdemiranda.customer.onboarding.dto.onboarding.AddressRequest;
@@ -11,6 +12,8 @@ import io.github.kbdemiranda.customer.onboarding.dto.onboarding.OnboardingRespon
 import io.github.kbdemiranda.customer.onboarding.dto.onboarding.PhoneRequest;
 import io.github.kbdemiranda.customer.onboarding.entity.CustomerDocument;
 import io.github.kbdemiranda.customer.onboarding.entity.CustomerOnboarding;
+import io.github.kbdemiranda.customer.onboarding.entity.OnboardingAuditLog;
+import io.github.kbdemiranda.customer.onboarding.enums.AuditAction;
 import io.github.kbdemiranda.customer.onboarding.enums.DocumentType;
 import io.github.kbdemiranda.customer.onboarding.enums.OnboardingStatus;
 import io.github.kbdemiranda.customer.onboarding.exception.BusinessValidationException;
@@ -23,6 +26,8 @@ import io.github.kbdemiranda.customer.onboarding.mapper.CustomerDocumentMapper;
 import io.github.kbdemiranda.customer.onboarding.mapper.CustomerEmailMapper;
 import io.github.kbdemiranda.customer.onboarding.mapper.CustomerOnboardingMapper;
 import io.github.kbdemiranda.customer.onboarding.mapper.CustomerPhoneMapper;
+import io.github.kbdemiranda.customer.onboarding.mapper.AuditLogMapper;
+import java.time.LocalDateTime;
 import io.github.kbdemiranda.customer.onboarding.repository.CustomerDocumentRepository;
 import io.github.kbdemiranda.customer.onboarding.repository.CustomerOnboardingRepository;
 import io.github.kbdemiranda.customer.onboarding.repository.OnboardingAuditLogRepository;
@@ -44,6 +49,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -62,6 +68,7 @@ class CustomerOnboardingServiceImplTest {
         CustomerDocumentMapper customerDocumentMapper = new CustomerDocumentMapper();
         CustomerEmailMapper customerEmailMapper = new CustomerEmailMapper();
         CustomerPhoneMapper customerPhoneMapper = new CustomerPhoneMapper();
+        AuditLogMapper auditLogMapper = new AuditLogMapper();
         CustomerOnboardingMapper customerOnboardingMapper =
                 new CustomerOnboardingMapper(customerAddressMapper, customerEmailMapper, customerPhoneMapper);
 
@@ -74,7 +81,8 @@ class CustomerOnboardingServiceImplTest {
                 customerEmailMapper,
                 customerPhoneMapper,
                 customerAddressMapper,
-                customerDocumentMapper
+                customerDocumentMapper,
+                auditLogMapper
         );
     }
 
@@ -245,6 +253,56 @@ class CustomerOnboardingServiceImplTest {
                 assertThrows(ResourceNotFoundException.class, () -> service.getByExternalId(externalId));
 
         assertEquals("Onboarding not found", exception.getMessage());
+    }
+
+    @Test
+    void shouldReturnAuditLogsOrderedByCreatedAtDescWhenOnboardingExists() {
+        UUID onboardingExternalId = UUID.randomUUID();
+        CustomerOnboarding onboarding = onboardingEntity("12345678909", OnboardingStatus.DOCUMENTS_RECEIVED);
+        onboarding.setExternalId(onboardingExternalId);
+
+        OnboardingAuditLog newestLog = new OnboardingAuditLog();
+        newestLog.setExternalId(UUID.randomUUID());
+        newestLog.setAction(AuditAction.DOCUMENT_UPLOADED);
+        newestLog.setStatus("SUCCESS");
+        newestLog.setMessage("Document uploaded successfully");
+        newestLog.setCreatedAt(LocalDateTime.of(2026, 5, 4, 12, 30));
+
+        OnboardingAuditLog oldestLog = new OnboardingAuditLog();
+        oldestLog.setExternalId(UUID.randomUUID());
+        oldestLog.setAction(AuditAction.ONBOARDING_CREATED);
+        oldestLog.setStatus("SUCCESS");
+        oldestLog.setMessage("Onboarding created successfully");
+        oldestLog.setCreatedAt(LocalDateTime.of(2026, 5, 3, 9, 0));
+
+        when(customerOnboardingRepository.findByExternalId(onboardingExternalId)).thenReturn(java.util.Optional.of(onboarding));
+        when(onboardingAuditLogRepository.findByOnboardingExternalIdOrderByCreatedAtDesc(onboardingExternalId))
+                .thenReturn(List.of(newestLog, oldestLog));
+
+        List<AuditLogResponse> response = service.getAuditLogs(onboardingExternalId);
+
+        assertEquals(2, response.size());
+        assertEquals(newestLog.getExternalId(), response.get(0).externalId());
+        assertEquals(newestLog.getAction(), response.get(0).action());
+        assertEquals(newestLog.getStatus(), response.get(0).status());
+        assertEquals(newestLog.getMessage(), response.get(0).message());
+        assertEquals(newestLog.getCreatedAt(), response.get(0).createdAt());
+
+        assertEquals(oldestLog.getExternalId(), response.get(1).externalId());
+        assertEquals(oldestLog.getCreatedAt(), response.get(1).createdAt());
+    }
+
+    @Test
+    void shouldThrowWhenGettingAuditLogsForNonExistingOnboarding() {
+        UUID onboardingExternalId = UUID.randomUUID();
+        when(customerOnboardingRepository.findByExternalId(onboardingExternalId)).thenReturn(java.util.Optional.empty());
+
+        ResourceNotFoundException exception =
+                assertThrows(ResourceNotFoundException.class, () -> service.getAuditLogs(onboardingExternalId));
+
+        assertEquals("Onboarding not found", exception.getMessage());
+        verify(onboardingAuditLogRepository, never())
+                .findByOnboardingExternalIdOrderByCreatedAtDesc(any(UUID.class));
     }
 
     @Test

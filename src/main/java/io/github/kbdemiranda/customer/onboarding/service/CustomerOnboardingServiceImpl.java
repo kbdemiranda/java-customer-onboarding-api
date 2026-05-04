@@ -1,6 +1,7 @@
 package io.github.kbdemiranda.customer.onboarding.service;
 
 import io.github.kbdemiranda.customer.onboarding.dto.AddressData;
+import io.github.kbdemiranda.customer.onboarding.dto.audit.AuditLogResponse;
 import io.github.kbdemiranda.customer.onboarding.dto.common.PageResponse;
 import io.github.kbdemiranda.customer.onboarding.dto.document.DocumentResponse;
 import io.github.kbdemiranda.customer.onboarding.dto.onboarding.AddressRequest;
@@ -27,6 +28,7 @@ import io.github.kbdemiranda.customer.onboarding.mapper.CustomerDocumentMapper;
 import io.github.kbdemiranda.customer.onboarding.mapper.CustomerEmailMapper;
 import io.github.kbdemiranda.customer.onboarding.mapper.CustomerOnboardingMapper;
 import io.github.kbdemiranda.customer.onboarding.mapper.CustomerPhoneMapper;
+import io.github.kbdemiranda.customer.onboarding.mapper.AuditLogMapper;
 import io.github.kbdemiranda.customer.onboarding.repository.CustomerDocumentRepository;
 import io.github.kbdemiranda.customer.onboarding.repository.CustomerOnboardingRepository;
 import io.github.kbdemiranda.customer.onboarding.repository.OnboardingAuditLogRepository;
@@ -65,6 +67,7 @@ public class CustomerOnboardingServiceImpl implements CustomerOnboardingService 
     private final CustomerPhoneMapper customerPhoneMapper;
     private final CustomerAddressMapper customerAddressMapper;
     private final CustomerDocumentMapper customerDocumentMapper;
+    private final AuditLogMapper auditLogMapper;
 
     public CustomerOnboardingServiceImpl(CustomerOnboardingRepository customerOnboardingRepository,
                                          CustomerDocumentRepository customerDocumentRepository,
@@ -74,7 +77,8 @@ public class CustomerOnboardingServiceImpl implements CustomerOnboardingService 
                                          CustomerEmailMapper customerEmailMapper,
                                          CustomerPhoneMapper customerPhoneMapper,
                                          CustomerAddressMapper customerAddressMapper,
-                                         CustomerDocumentMapper customerDocumentMapper) {
+                                         CustomerDocumentMapper customerDocumentMapper,
+                                         AuditLogMapper auditLogMapper) {
         this.customerOnboardingRepository = customerOnboardingRepository;
         this.customerDocumentRepository = customerDocumentRepository;
         this.onboardingAuditLogRepository = onboardingAuditLogRepository;
@@ -84,6 +88,7 @@ public class CustomerOnboardingServiceImpl implements CustomerOnboardingService 
         this.customerPhoneMapper = customerPhoneMapper;
         this.customerAddressMapper = customerAddressMapper;
         this.customerDocumentMapper = customerDocumentMapper;
+        this.auditLogMapper = auditLogMapper;
     }
 
     @Override
@@ -195,6 +200,17 @@ public class CustomerOnboardingServiceImpl implements CustomerOnboardingService 
         onboardingAuditLogRepository.save(auditLog);
 
         return customerDocumentMapper.toResponse(savedDocument);
+    }
+
+    @Override
+    public List<AuditLogResponse> getAuditLogs(UUID onboardingExternalId) {
+        customerOnboardingRepository.findByExternalId(onboardingExternalId)
+                .orElseThrow(() -> new ResourceNotFoundException("Onboarding not found"));
+
+        List<OnboardingAuditLog> auditLogs =
+                onboardingAuditLogRepository.findByOnboardingExternalIdOrderByCreatedAtDesc(onboardingExternalId);
+
+        return auditLogMapper.toResponseList(auditLogs);
     }
 
     private CustomerAddress toEnrichedAddress(AddressRequest request, CustomerOnboarding onboarding) {

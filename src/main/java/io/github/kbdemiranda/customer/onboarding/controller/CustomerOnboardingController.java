@@ -1,5 +1,6 @@
 package io.github.kbdemiranda.customer.onboarding.controller;
 
+import io.github.kbdemiranda.customer.onboarding.dto.audit.AuditLogResponse;
 import io.github.kbdemiranda.customer.onboarding.dto.common.PageResponse;
 import io.github.kbdemiranda.customer.onboarding.dto.document.DocumentResponse;
 import io.github.kbdemiranda.customer.onboarding.enums.DocumentType;
@@ -8,6 +9,7 @@ import io.github.kbdemiranda.customer.onboarding.dto.onboarding.OnboardingFilter
 import io.github.kbdemiranda.customer.onboarding.dto.onboarding.OnboardingResponse;
 import io.github.kbdemiranda.customer.onboarding.service.CustomerOnboardingService;
 import jakarta.validation.Valid;
+import java.util.List;
 import java.util.UUID;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.http.HttpStatus;
@@ -57,6 +59,12 @@ public class CustomerOnboardingController {
     @GetMapping
     public ResponseEntity<PageResponse<OnboardingResponse>> listOnboardings(@Valid @ModelAttribute OnboardingFilter criteria) {
         PageResponse<OnboardingResponse> response = customerOnboardingService.listOnboardings(criteria);
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/{externalId}/audit-logs")
+    public ResponseEntity<List<AuditLogResponse>> getAuditLogs(@PathVariable UUID externalId) {
+        List<AuditLogResponse> response = customerOnboardingService.getAuditLogs(externalId);
         return ResponseEntity.ok(response);
     }
 }
