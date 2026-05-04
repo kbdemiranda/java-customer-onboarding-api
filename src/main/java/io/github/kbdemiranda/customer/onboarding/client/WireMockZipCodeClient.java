@@ -5,6 +5,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.Optional;
@@ -41,7 +42,7 @@ public class WireMockZipCodeClient implements ZipCodeClient {
                     body.city(),
                     body.state()
             ));
-        } catch (HttpClientErrorException.NotFound e) {
+        } catch (HttpClientErrorException.NotFound | ResourceAccessException e) {
             return Optional.empty();
         }
     }
