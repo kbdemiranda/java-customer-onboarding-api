@@ -13,6 +13,8 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.client.ResourceAccessException;
+import org.springframework.web.client.RestClientException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -103,6 +105,26 @@ public class GlobalExceptionHandler {
                                                                           HttpServletRequest request) {
         String message = "Invalid value for parameter: " + ex.getName();
         return buildErrorResponse(HttpStatus.BAD_REQUEST, message, request.getRequestURI());
+    }
+
+    @ExceptionHandler({RestClientException.class, ResourceAccessException.class})
+    public ResponseEntity<ErrorResponse> handleExternalProviderErrors(Exception ex,
+                                                                      HttpServletRequest request) {
+        return buildErrorResponse(
+                HttpStatus.BAD_GATEWAY,
+                "External provider is unavailable. Please try again later.",
+                request.getRequestURI()
+        );
+    }
+
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<ErrorResponse> handleGeneric(Exception ex,
+                                                       HttpServletRequest request) {
+        return buildErrorResponse(
+                HttpStatus.INTERNAL_SERVER_ERROR,
+                "An unexpected internal error occurred.",
+                request.getRequestURI()
+        );
     }
 
     private ResponseEntity<ErrorResponse> buildErrorResponse(HttpStatus status,

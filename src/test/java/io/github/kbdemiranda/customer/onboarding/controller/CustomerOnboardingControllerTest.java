@@ -29,6 +29,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.web.client.RestClientException;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
@@ -383,6 +384,30 @@ class CustomerOnboardingControllerTest {
         mockMvc.perform(get("/api/v1/onboardings/{externalId}", "not-a-uuid"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.status").value(400));
+    }
+
+    @Test
+    void shouldReturnBadGatewayWhenExternalProviderFails() throws Exception {
+        when(customerOnboardingService.createOnboarding(any()))
+                .thenThrow(new RestClientException("Provider timeout"));
+
+        mockMvc.perform(post("/api/v1/onboardings")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(validPayload()))
+                .andExpect(status().isBadGateway())
+                .andExpect(jsonPath("$.status").value(502));
+    }
+
+    @Test
+    void shouldReturnInternalServerErrorWhenUnexpectedExceptionOccurs() throws Exception {
+        when(customerOnboardingService.createOnboarding(any()))
+                .thenThrow(new RuntimeException("Unexpected failure"));
+
+        mockMvc.perform(post("/api/v1/onboardings")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(validPayload()))
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.status").value(500));
     }
 
     private String validPayload() {
