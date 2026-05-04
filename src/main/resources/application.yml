@@ -28,3 +28,9 @@ management:
     web:
       exposure:
         include: health,info
+
+zip-code:
+  wiremock:
+    base-url: http://localhost:8081
+  viacep:
+    base-url: https://viacep.com.br/ws
