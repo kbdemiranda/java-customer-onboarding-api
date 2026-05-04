@@ -2,13 +2,16 @@ package io.github.kbdemiranda.customer.onboarding.exception;
 
 import io.github.kbdemiranda.customer.onboarding.dto.common.ErrorResponse;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.ConstraintViolationException;
 import java.time.OffsetDateTime;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.BindException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.HandlerMethodValidationException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -38,6 +41,44 @@ public class GlobalExceptionHandler {
                 .getFieldErrors()
                 .stream()
                 .map(FieldError::getDefaultMessage)
+                .findFirst()
+                .orElse("Validation failed");
+
+        return buildErrorResponse(HttpStatus.BAD_REQUEST, message, request.getRequestURI());
+    }
+
+    @ExceptionHandler(ConstraintViolationException.class)
+    public ResponseEntity<ErrorResponse> handleConstraintViolation(ConstraintViolationException ex,
+                                                                   HttpServletRequest request) {
+        String message = ex.getConstraintViolations()
+                .stream()
+                .map(violation -> violation.getMessage())
+                .findFirst()
+                .orElse("Validation failed");
+
+        return buildErrorResponse(HttpStatus.BAD_REQUEST, message, request.getRequestURI());
+    }
+
+    @ExceptionHandler(BindException.class)
+    public ResponseEntity<ErrorResponse> handleBindException(BindException ex,
+                                                             HttpServletRequest request) {
+        String message = ex.getBindingResult()
+                .getFieldErrors()
+                .stream()
+                .map(FieldError::getDefaultMessage)
+                .findFirst()
+                .orElse("Validation failed");
+
+        return buildErrorResponse(HttpStatus.BAD_REQUEST, message, request.getRequestURI());
+    }
+
+    @ExceptionHandler(HandlerMethodValidationException.class)
+    public ResponseEntity<ErrorResponse> handleHandlerMethodValidation(HandlerMethodValidationException ex,
+                                                                       HttpServletRequest request) {
+        String message = ex.getParameterValidationResults()
+                .stream()
+                .flatMap(result -> result.getResolvableErrors().stream())
+                .map(error -> error.getDefaultMessage())
                 .findFirst()
                 .orElse("Validation failed");
 

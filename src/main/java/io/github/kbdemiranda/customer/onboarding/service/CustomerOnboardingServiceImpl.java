@@ -1,9 +1,11 @@
 package io.github.kbdemiranda.customer.onboarding.service;
 
 import io.github.kbdemiranda.customer.onboarding.dto.AddressData;
+import io.github.kbdemiranda.customer.onboarding.dto.common.PageResponse;
 import io.github.kbdemiranda.customer.onboarding.dto.onboarding.AddressRequest;
 import io.github.kbdemiranda.customer.onboarding.dto.onboarding.CreateOnboardingRequest;
 import io.github.kbdemiranda.customer.onboarding.dto.onboarding.EmailRequest;
+import io.github.kbdemiranda.customer.onboarding.dto.onboarding.OnboardingFilter;
 import io.github.kbdemiranda.customer.onboarding.dto.onboarding.OnboardingResponse;
 import io.github.kbdemiranda.customer.onboarding.dto.onboarding.PhoneRequest;
 import io.github.kbdemiranda.customer.onboarding.entity.CustomerAddress;
@@ -21,8 +23,14 @@ import io.github.kbdemiranda.customer.onboarding.mapper.CustomerOnboardingMapper
 import io.github.kbdemiranda.customer.onboarding.mapper.CustomerPhoneMapper;
 import io.github.kbdemiranda.customer.onboarding.repository.CustomerOnboardingRepository;
 import io.github.kbdemiranda.customer.onboarding.repository.OnboardingAuditLogRepository;
+import io.github.kbdemiranda.customer.onboarding.repository.specification.CustomerOnboardingSpecification;
 import jakarta.transaction.Transactional;
 import java.util.List;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -92,6 +100,33 @@ public class CustomerOnboardingServiceImpl implements CustomerOnboardingService 
         onboardingAuditLogRepository.save(auditLog);
 
         return customerOnboardingMapper.toResponse(savedOnboarding);
+    }
+
+    @Override
+    public PageResponse<OnboardingResponse> listOnboardings(OnboardingFilter criteria) {
+        String normalizedCpf = normalizeDigits(criteria.cpf());
+        Specification<CustomerOnboarding> specification = Specification
+                .where(CustomerOnboardingSpecification.cpfEquals(normalizedCpf.isBlank() ? null : normalizedCpf))
+                .and(CustomerOnboardingSpecification.statusEquals(criteria.status()));
+
+        Pageable pageable = PageRequest.of(
+                criteria.page(),
+                criteria.size(),
+                Sort.by(Sort.Direction.DESC, "createdAt")
+        );
+
+        Page<CustomerOnboarding> onboardingPage = customerOnboardingRepository.findAll(specification, pageable);
+        List<OnboardingResponse> content = onboardingPage.getContent().stream()
+                .map(customerOnboardingMapper::toResponse)
+                .toList();
+
+        return new PageResponse<>(
+                content,
+                onboardingPage.getNumber(),
+                onboardingPage.getSize(),
+                onboardingPage.getTotalElements(),
+                onboardingPage.getTotalPages()
+        );
     }
 
     private CustomerAddress toEnrichedAddress(AddressRequest request, CustomerOnboarding onboarding) {

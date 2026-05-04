@@ -1,7 +1,9 @@
 package io.github.kbdemiranda.customer.onboarding.controller;
 
+import io.github.kbdemiranda.customer.onboarding.dto.common.PageResponse;
 import io.github.kbdemiranda.customer.onboarding.dto.onboarding.AddressResponse;
 import io.github.kbdemiranda.customer.onboarding.dto.onboarding.EmailResponse;
+import io.github.kbdemiranda.customer.onboarding.dto.onboarding.OnboardingFilter;
 import io.github.kbdemiranda.customer.onboarding.dto.onboarding.OnboardingResponse;
 import io.github.kbdemiranda.customer.onboarding.dto.onboarding.PhoneResponse;
 import io.github.kbdemiranda.customer.onboarding.enums.OnboardingStatus;
@@ -22,7 +24,10 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -110,6 +115,71 @@ class CustomerOnboardingControllerTest {
         mockMvc.perform(post("/api/v1/onboardings")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(validPayload()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400));
+    }
+
+    @Test
+    void shouldReturnOkWhenListingOnboardingsWithPaginationAndStatusFilter() throws Exception {
+        OnboardingResponse onboarding = new OnboardingResponse(
+                UUID.randomUUID(),
+                "John Doe",
+                "12345678909",
+                OnboardingStatus.DOCUMENTS_PENDING,
+                List.of(new EmailResponse(UUID.randomUUID(), "john@example.com", true)),
+                List.of(new PhoneResponse(UUID.randomUUID(), "11999999999", false)),
+                List.of(new AddressResponse(UUID.randomUUID(), "01001000", "Praca da Se", "100", "Apt 10", "Se", "Sao Paulo", "SP", true)),
+                LocalDateTime.now()
+        );
+        PageResponse<OnboardingResponse> response = new PageResponse<>(List.of(onboarding), 0, 10, 1, 1);
+
+        when(customerOnboardingService.listOnboardings(any(OnboardingFilter.class))).thenReturn(response);
+
+        mockMvc.perform(get("/api/v1/onboardings")
+                        .param("page", "0")
+                        .param("size", "10")
+                        .param("status", "DOCUMENTS_PENDING"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.page").value(0))
+                .andExpect(jsonPath("$.size").value(10))
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.content[0].status").value("DOCUMENTS_PENDING"));
+    }
+
+    @Test
+    void shouldBindFormattedCpfFilterWhenListingOnboardings() throws Exception {
+        PageResponse<OnboardingResponse> response = new PageResponse<>(List.of(), 0, 10, 0, 0);
+        when(customerOnboardingService.listOnboardings(any(OnboardingFilter.class))).thenReturn(response);
+
+        mockMvc.perform(get("/api/v1/onboardings")
+                        .param("cpf", "123.456.789-09"))
+                .andExpect(status().isOk());
+
+        verify(customerOnboardingService).listOnboardings(argThat(filter ->
+                "123.456.789-09".equals(filter.cpf()) && filter.page() == 0 && filter.size() == 10
+        ));
+    }
+
+    @Test
+    void shouldReturnBadRequestWhenPageIsNegative() throws Exception {
+        mockMvc.perform(get("/api/v1/onboardings")
+                        .param("page", "-1"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400));
+    }
+
+    @Test
+    void shouldReturnBadRequestWhenSizeIsZero() throws Exception {
+        mockMvc.perform(get("/api/v1/onboardings")
+                        .param("size", "0"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400));
+    }
+
+    @Test
+    void shouldReturnBadRequestWhenSizeExceedsLimit() throws Exception {
+        mockMvc.perform(get("/api/v1/onboardings")
+                        .param("size", "101"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.status").value(400));
     }
