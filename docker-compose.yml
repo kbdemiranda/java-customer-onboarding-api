@@ -3,6 +3,8 @@ services:
     image: alpine:3.21
     command: ["sh", "-c", "echo 'App container intentionally deferred for Step 1'; sleep infinity"]
     profiles: ["app"]
+    volumes:
+      - documents_data_base:/tmp/documents
 
   postgres:
     image: postgres:17-alpine
@@ -24,3 +26,4 @@ services:
 
 volumes:
   postgres_data:
+  documents_data_base:

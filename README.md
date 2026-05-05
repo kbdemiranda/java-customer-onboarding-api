@@ -126,6 +126,7 @@ Three compose files are available:
 - `docker-compose.local.yml`: local development (builds API image from source).
 - `docker-compose.dev.yml`: development environment (uses prebuilt image from `APP_IMAGE`).
 - `docker-compose.prod.yml`: production-like runtime (uses prebuilt image from `APP_IMAGE`).
+- `docker-compose.hub.yml`: runs API and frontend from Docker Hub images.
 
 ### Local
 Start:
@@ -157,6 +158,24 @@ Stop:
 docker compose -f docker-compose.prod.yml down
 ```
 
+### Docker Hub (API + Frontend)
+Uses:
+- `kbdemiranda/java-customer-onboarding-api`
+- `kbdemiranda/react-customer-onboarding-web`
+
+Start:
+```bash
+docker compose -f docker-compose.hub.yml up -d
+```
+Stop:
+```bash
+docker compose -f docker-compose.hub.yml down
+```
+
+Default URLs:
+- Frontend: `http://localhost:3000`
+- API: `http://localhost:8080`
+
 ## Environment Variables
 Main application variables:
 - `SERVER_PORT` (default `8080`)
@@ -174,6 +193,9 @@ Database/container variables:
 - `POSTGRES_PORT` (local/dev)
 - `WIREMOCK_PORT` (local/dev)
 - `APP_IMAGE` (dev/prod)
+- `APP_IMAGE_HUB` (Docker Hub compose)
+- `FRONTEND_IMAGE_HUB` (Docker Hub compose)
+- `FRONTEND_PORT` (Docker Hub compose)
 
 Reference files:
 - `.env.model` (versioned template)

@@ -41,6 +41,7 @@ import java.util.List;
 import java.security.SecureRandom;
 import java.util.Set;
 import java.util.UUID;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -73,6 +74,7 @@ public class CustomerOnboardingServiceImpl implements CustomerOnboardingService 
     private final CustomerAddressMapper customerAddressMapper;
     private final CustomerDocumentMapper customerDocumentMapper;
     private final AuditLogMapper auditLogMapper;
+    private final String documentStorageBasePath;
 
     public CustomerOnboardingServiceImpl(CustomerOnboardingRepository customerOnboardingRepository,
                                          CustomerDocumentRepository customerDocumentRepository,
@@ -83,7 +85,8 @@ public class CustomerOnboardingServiceImpl implements CustomerOnboardingService 
                                          CustomerPhoneMapper customerPhoneMapper,
                                          CustomerAddressMapper customerAddressMapper,
                                          CustomerDocumentMapper customerDocumentMapper,
-                                         AuditLogMapper auditLogMapper) {
+                                         AuditLogMapper auditLogMapper,
+                                         @Value("${document-storage.base-path:uploads}") String documentStorageBasePath) {
         this.customerOnboardingRepository = customerOnboardingRepository;
         this.customerDocumentRepository = customerDocumentRepository;
         this.onboardingAuditLogRepository = onboardingAuditLogRepository;
@@ -94,6 +97,7 @@ public class CustomerOnboardingServiceImpl implements CustomerOnboardingService 
         this.customerAddressMapper = customerAddressMapper;
         this.customerDocumentMapper = customerDocumentMapper;
         this.auditLogMapper = auditLogMapper;
+        this.documentStorageBasePath = documentStorageBasePath;
     }
 
     @Override
@@ -333,7 +337,7 @@ public class CustomerOnboardingServiceImpl implements CustomerOnboardingService 
 
     private Path storeFile(UUID onboardingExternalId, String originalFileName, MultipartFile file) {
         try {
-            Path directory = Path.of("uploads", onboardingExternalId.toString());
+            Path directory = Path.of(documentStorageBasePath, onboardingExternalId.toString());
             Files.createDirectories(directory);
 
             String extension = resolveExtension(originalFileName);

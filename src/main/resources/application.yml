@@ -34,3 +34,6 @@ zip-code:
     base-url: ${ZIP_CODE_WIREMOCK_BASE_URL:http://localhost:8081}
   viacep:
     base-url: ${ZIP_CODE_VIACEP_BASE_URL:https://viacep.com.br/ws}
+
+document-storage:
+  base-path: ${DOCUMENT_STORAGE_BASE_PATH:uploads}

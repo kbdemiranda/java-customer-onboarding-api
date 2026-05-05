@@ -7,6 +7,7 @@ services:
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
       ZIP_CODE_WIREMOCK_BASE_URL: http://wiremock:8080
+      DOCUMENT_STORAGE_BASE_PATH: /tmp/documents
     depends_on:
       postgres:
         condition: service_healthy
@@ -14,6 +15,8 @@ services:
         condition: service_started
     ports:
       - "${SERVER_PORT}:8080"
+    volumes:
+      - documents_data_prod:/tmp/documents
     restart: always
 
   postgres:
@@ -39,3 +42,4 @@ services:
 
 volumes:
   postgres_data_prod:
+  documents_data_prod:
