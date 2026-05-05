@@ -1,0 +1,41 @@
+services:
+  app:
+    image: ${APP_IMAGE}
+    container_name: onboarding-api-prod
+    env_file:
+      - .env.prod
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
+      ZIP_CODE_WIREMOCK_BASE_URL: http://wiremock:8080
+    depends_on:
+      postgres:
+        condition: service_healthy
+      wiremock:
+        condition: service_started
+    ports:
+      - "${SERVER_PORT}:8080"
+    restart: always
+
+  postgres:
+    image: postgres:17-alpine
+    container_name: onboarding-postgres-prod
+    env_file:
+      - .env.prod
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - postgres_data_prod:/var/lib/postgresql/data
+    restart: always
+
+  wiremock:
+    image: wiremock/wiremock:3.13.1
+    container_name: onboarding-wiremock-prod
+    volumes:
+      - ./wiremock/mappings:/home/wiremock/mappings:ro
+    restart: always
+
+volumes:
+  postgres_data_prod:

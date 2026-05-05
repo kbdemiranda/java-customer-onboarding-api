@@ -1,0 +1,47 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: onboarding-api-local
+    env_file:
+      - .env.local
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
+      ZIP_CODE_WIREMOCK_BASE_URL: http://wiremock:8080
+    depends_on:
+      postgres:
+        condition: service_healthy
+      wiremock:
+        condition: service_started
+    ports:
+      - "${SERVER_PORT}:8080"
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:17-alpine
+    container_name: onboarding-postgres-local
+    env_file:
+      - .env.local
+    ports:
+      - "${POSTGRES_PORT}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - postgres_data_local:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  wiremock:
+    image: wiremock/wiremock:3.13.1
+    container_name: onboarding-wiremock-local
+    ports:
+      - "${WIREMOCK_PORT}:8080"
+    volumes:
+      - ./wiremock/mappings:/home/wiremock/mappings:ro
+    restart: unless-stopped
+
+volumes:
+  postgres_data_local:

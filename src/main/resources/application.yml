@@ -31,6 +31,6 @@ management:
 
 zip-code:
   wiremock:
-    base-url: http://localhost:8081
+    base-url: ${ZIP_CODE_WIREMOCK_BASE_URL:http://localhost:8081}
   viacep:
-    base-url: https://viacep.com.br/ws
+    base-url: ${ZIP_CODE_VIACEP_BASE_URL:https://viacep.com.br/ws}
