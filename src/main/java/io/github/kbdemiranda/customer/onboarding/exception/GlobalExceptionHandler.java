@@ -117,6 +117,16 @@ public class GlobalExceptionHandler {
         );
     }
 
+    @ExceptionHandler(ExternalProviderException.class)
+    public ResponseEntity<ErrorResponse> handleExternalProviderException(ExternalProviderException ex,
+                                                                         HttpServletRequest request) {
+        return buildErrorResponse(
+                HttpStatus.BAD_GATEWAY,
+                ex.getMessage(),
+                request.getRequestURI()
+        );
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGeneric(Exception ex,
                                                        HttpServletRequest request) {

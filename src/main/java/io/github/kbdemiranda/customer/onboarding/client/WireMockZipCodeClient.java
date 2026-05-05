@@ -1,14 +1,14 @@
 package io.github.kbdemiranda.customer.onboarding.client;
 
-import io.github.kbdemiranda.customer.onboarding.dto.AddressData;
+import io.github.kbdemiranda.customer.onboarding.dto.zipcode.ZipCodeResponse;
+import io.github.kbdemiranda.customer.onboarding.exception.ExternalProviderException;
+import java.util.Optional;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.HttpClientErrorException;
-import org.springframework.web.client.ResourceAccessException;
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
-
-import java.util.Optional;
 
 @Component
 public class WireMockZipCodeClient implements ZipCodeClient {
@@ -23,36 +23,24 @@ public class WireMockZipCodeClient implements ZipCodeClient {
     }
 
     @Override
-    public Optional<AddressData> findByZipCode(String zipCode) {
+    public Optional<ZipCodeResponse> findByZipCode(String zipCode) {
         String url = "%s/zip-codes/%s".formatted(baseUrl, zipCode);
 
         try {
-            ResponseEntity<WireMockAddressResponse> response =
-                    restTemplate.getForEntity(url, WireMockAddressResponse.class);
-
-            WireMockAddressResponse body = response.getBody();
-            if (body == null) {
+            ResponseEntity<ZipCodeResponse> response = restTemplate.getForEntity(url, ZipCodeResponse.class);
+            ZipCodeResponse body = response.getBody();
+            if (body == null || isBlank(body.zipCode()) || isBlank(body.city()) || isBlank(body.state())) {
                 return Optional.empty();
             }
-
-            return Optional.of(new AddressData(
-                    body.zipCode(),
-                    body.street(),
-                    body.neighborhood(),
-                    body.city(),
-                    body.state()
-            ));
-        } catch (HttpClientErrorException.NotFound | ResourceAccessException e) {
+            return Optional.of(body);
+        } catch (HttpClientErrorException.NotFound e) {
             return Optional.empty();
+        } catch (RestClientException e) {
+            throw new ExternalProviderException("WireMock provider failed", e);
         }
     }
 
-    private record WireMockAddressResponse(
-            String zipCode,
-            String street,
-            String neighborhood,
-            String city,
-            String state
-    ) {
+    private boolean isBlank(String value) {
+        return value == null || value.isBlank();
     }
 }

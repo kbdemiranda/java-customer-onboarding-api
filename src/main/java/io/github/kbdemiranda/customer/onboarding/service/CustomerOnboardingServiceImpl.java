@@ -1,6 +1,6 @@
 package io.github.kbdemiranda.customer.onboarding.service;
 
-import io.github.kbdemiranda.customer.onboarding.dto.AddressData;
+import io.github.kbdemiranda.customer.onboarding.dto.zipcode.ZipCodeResponse;
 import io.github.kbdemiranda.customer.onboarding.dto.audit.AuditLogResponse;
 import io.github.kbdemiranda.customer.onboarding.dto.common.PageResponse;
 import io.github.kbdemiranda.customer.onboarding.dto.document.DocumentResponse;
@@ -225,7 +225,7 @@ public class CustomerOnboardingServiceImpl implements CustomerOnboardingService 
 
     private CustomerAddress toEnrichedAddress(AddressRequest request, CustomerOnboarding onboarding) {
         String normalizedZipCode = normalizeDigits(request.zipCode());
-        AddressData addressData = zipCodeService.getAddressOrThrow(normalizedZipCode);
+        ZipCodeResponse addressData = zipCodeService.searchZipCode(normalizedZipCode);
 
         CustomerAddress address = customerAddressMapper.toEntity(request, onboarding);
         address.setZipCode(normalizedZipCode);

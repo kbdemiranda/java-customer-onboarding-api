@@ -1,6 +1,6 @@
 package io.github.kbdemiranda.customer.onboarding.service;
 
-import io.github.kbdemiranda.customer.onboarding.dto.AddressData;
+import io.github.kbdemiranda.customer.onboarding.dto.zipcode.ZipCodeResponse;
 import io.github.kbdemiranda.customer.onboarding.dto.audit.AuditLogResponse;
 import io.github.kbdemiranda.customer.onboarding.dto.common.PageResponse;
 import io.github.kbdemiranda.customer.onboarding.dto.document.DocumentResponse;
@@ -88,10 +88,10 @@ class CustomerOnboardingServiceImplTest {
     @Test
     void shouldCreateOnboardingWithZipCodeEnrichmentAndAuditLog() {
         CreateOnboardingRequest request = validRequest();
-        AddressData addressData = new AddressData("01001000", "Praca da Se", "Se", "Sao Paulo", "SP");
+        ZipCodeResponse addressData = new ZipCodeResponse("01001000", "Praca da Se", "Se", "Sao Paulo", "SP");
 
         when(customerOnboardingRepository.existsByCpf("12345678909")).thenReturn(false);
-        when(zipCodeService.getAddressOrThrow("01001000")).thenReturn(addressData);
+        when(zipCodeService.searchZipCode("01001000")).thenReturn(addressData);
         when(customerOnboardingRepository.save(any(CustomerOnboarding.class))).thenAnswer(invocation -> {
             CustomerOnboarding onboarding = invocation.getArgument(0);
             onboarding.setExternalId(UUID.randomUUID());
@@ -149,7 +149,7 @@ class CustomerOnboardingServiceImplTest {
         CreateOnboardingRequest request = validRequest();
 
         when(customerOnboardingRepository.existsByCpf("12345678909")).thenReturn(false);
-        when(zipCodeService.getAddressOrThrow("01001000")).thenThrow(new ZipCodeNotFoundException());
+        when(zipCodeService.searchZipCode("01001000")).thenThrow(new ZipCodeNotFoundException());
 
         assertThrows(ZipCodeNotFoundException.class, () -> service.createOnboarding(request));
     }

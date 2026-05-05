@@ -1,0 +1,19 @@
+{
+  "request": {
+    "method": "GET",
+    "urlPath": "/zip-codes/04364030"
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "jsonBody": {
+      "zipCode": "04364030",
+      "street": "Avenida Cupece",
+      "neighborhood": "Jardim Prudencia",
+      "city": "Sao Paulo",
+      "state": "SP"
+    }
+  }
+}

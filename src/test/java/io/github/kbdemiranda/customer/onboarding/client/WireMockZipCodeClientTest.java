@@ -1,6 +1,8 @@
 package io.github.kbdemiranda.customer.onboarding.client;
 
-import io.github.kbdemiranda.customer.onboarding.dto.AddressData;
+import io.github.kbdemiranda.customer.onboarding.dto.zipcode.ZipCodeResponse;
+import io.github.kbdemiranda.customer.onboarding.exception.ExternalProviderException;
+import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpMethod;
@@ -9,9 +11,8 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestTemplate;
 
-import java.util.Optional;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.client.ExpectedCount.once;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
@@ -21,13 +22,12 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 
 class WireMockZipCodeClientTest {
 
-    private RestTemplate restTemplate;
     private MockRestServiceServer server;
     private WireMockZipCodeClient client;
 
     @BeforeEach
     void setUp() {
-        restTemplate = new RestTemplate();
+        RestTemplate restTemplate = new RestTemplate();
         server = MockRestServiceServer.createServer(restTemplate);
         client = new WireMockZipCodeClient(restTemplate, "http://localhost:8081");
     }
@@ -47,7 +47,7 @@ class WireMockZipCodeClientTest {
                         }
                         """, MediaType.APPLICATION_JSON));
 
-        Optional<AddressData> result = client.findByZipCode(zipCode);
+        Optional<ZipCodeResponse> result = client.findByZipCode(zipCode);
 
         assertTrue(result.isPresent());
         assertEquals("01001000", result.get().zipCode());
@@ -61,9 +61,20 @@ class WireMockZipCodeClientTest {
                 .andExpect(method(HttpMethod.GET))
                 .andRespond(withStatus(HttpStatus.NOT_FOUND));
 
-        Optional<AddressData> result = client.findByZipCode(zipCode);
+        Optional<ZipCodeResponse> result = client.findByZipCode(zipCode);
 
         assertTrue(result.isEmpty());
+        server.verify();
+    }
+
+    @Test
+    void shouldThrowExternalProviderExceptionWhenWireMockFails() {
+        String zipCode = "01001000";
+        server.expect(once(), requestTo("http://localhost:8081/zip-codes/01001000"))
+                .andExpect(method(HttpMethod.GET))
+                .andRespond(withStatus(HttpStatus.INTERNAL_SERVER_ERROR));
+
+        assertThrows(ExternalProviderException.class, () -> client.findByZipCode(zipCode));
         server.verify();
     }
 }
