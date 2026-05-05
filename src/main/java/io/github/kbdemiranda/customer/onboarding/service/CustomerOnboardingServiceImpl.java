@@ -37,6 +37,7 @@ import jakarta.transaction.Transactional;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.YearMonth;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -103,6 +104,7 @@ public class CustomerOnboardingServiceImpl implements CustomerOnboardingService 
 
         CustomerOnboarding onboarding = customerOnboardingMapper.toEntity(request);
         onboarding.setCpf(normalizedCpf);
+        onboarding.setProtocol(generateProtocol(normalizedCpf));
         onboarding.setStatus(OnboardingStatus.DOCUMENTS_PENDING);
 
         List<CustomerEmail> emails = request.emails().stream()
@@ -134,8 +136,9 @@ public class CustomerOnboardingServiceImpl implements CustomerOnboardingService 
     }
 
     @Override
-    public OnboardingResponse getByExternalId(UUID externalId) {
-        CustomerOnboarding onboarding = customerOnboardingRepository.findByExternalId(externalId)
+    public OnboardingResponse getByProtocol(String protocol) {
+        CustomerOnboarding onboarding = customerOnboardingRepository
+                .findFirstByProtocolOrderByCreatedAtDesc(protocol)
                 .orElseThrow(() -> new ResourceNotFoundException("Onboarding not found"));
         return customerOnboardingMapper.toResponse(onboarding);
     }
@@ -290,6 +293,12 @@ public class CustomerOnboardingServiceImpl implements CustomerOnboardingService 
 
     private String normalizeDigits(String value) {
         return value == null ? "" : value.replaceAll("\\D", "");
+    }
+
+    private String generateProtocol(String normalizedCpf) {
+        String yearMonth = YearMonth.now().toString().replace("-", "");
+        String cpfLastFourDigits = normalizedCpf.substring(normalizedCpf.length() - 4);
+        return yearMonth + cpfLastFourDigits;
     }
 
     private void validateDocument(MultipartFile file, DocumentType documentType) {

@@ -8,6 +8,7 @@ import io.github.kbdemiranda.customer.onboarding.dto.onboarding.CreateOnboarding
 import io.github.kbdemiranda.customer.onboarding.dto.onboarding.OnboardingFilter;
 import io.github.kbdemiranda.customer.onboarding.dto.onboarding.OnboardingResponse;
 import java.util.List;
+import jakarta.validation.constraints.Pattern;
 import java.util.UUID;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -15,7 +16,7 @@ public interface CustomerOnboardingService {
 
     OnboardingResponse createOnboarding(CreateOnboardingRequest request);
 
-    OnboardingResponse getByExternalId(UUID externalId);
+    OnboardingResponse getByProtocol(@Pattern(regexp = "^\\d{10}$", message = "protocol must contain exactly 10 digits") String protocol);
 
     PageResponse<OnboardingResponse> listOnboardings(OnboardingFilter criteria);
 

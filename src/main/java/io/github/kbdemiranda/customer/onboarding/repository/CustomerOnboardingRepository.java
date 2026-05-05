@@ -13,6 +13,7 @@ public interface CustomerOnboardingRepository extends JpaRepository<CustomerOnbo
         JpaSpecificationExecutor<CustomerOnboarding> {
 
     Optional<CustomerOnboarding> findByExternalId(UUID externalId);
+    Optional<CustomerOnboarding> findFirstByProtocolOrderByCreatedAtDesc(String protocol);
 
     boolean existsByCpf(String cpf);
 

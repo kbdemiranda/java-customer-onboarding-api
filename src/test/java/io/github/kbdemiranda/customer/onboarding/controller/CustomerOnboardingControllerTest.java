@@ -56,6 +56,7 @@ class CustomerOnboardingControllerTest {
     void shouldReturnCreatedWhenOnboardingIsCreated() throws Exception {
         OnboardingResponse response = new OnboardingResponse(
                 UUID.randomUUID(),
+                "2026058909",
                 "John Doe",
                 "12345678909",
                 OnboardingStatus.DOCUMENTS_PENDING,
@@ -279,6 +280,7 @@ class CustomerOnboardingControllerTest {
     void shouldReturnOkWhenListingOnboardingsWithPaginationAndStatusFilter() throws Exception {
         OnboardingResponse onboarding = new OnboardingResponse(
                 UUID.randomUUID(),
+                "2026058909",
                 "John Doe",
                 "12345678909",
                 OnboardingStatus.DOCUMENTS_PENDING,
@@ -303,10 +305,12 @@ class CustomerOnboardingControllerTest {
     }
 
     @Test
-    void shouldReturnOkWhenGettingOnboardingByExternalId() throws Exception {
+    void shouldReturnOkWhenGettingOnboardingByProtocol() throws Exception {
+        String protocol = "2026058909";
         UUID externalId = UUID.randomUUID();
         OnboardingResponse response = new OnboardingResponse(
                 externalId,
+                protocol,
                 "John Doe",
                 "12345678909",
                 OnboardingStatus.DOCUMENTS_PENDING,
@@ -315,22 +319,23 @@ class CustomerOnboardingControllerTest {
                 List.of(new AddressResponse(UUID.randomUUID(), "01001000", "Praca da Se", "100", "Apt 10", "Se", "Sao Paulo", "SP", true)),
                 LocalDateTime.now()
         );
-        when(customerOnboardingService.getByExternalId(externalId)).thenReturn(response);
+        when(customerOnboardingService.getByProtocol(protocol)).thenReturn(response);
 
-        mockMvc.perform(get("/api/v1/onboardings/{externalId}", externalId))
+        mockMvc.perform(get("/api/v1/onboardings/protocol/{protocol}", protocol))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.externalId").value(externalId.toString()))
+                .andExpect(jsonPath("$.protocol").value(protocol))
                 .andExpect(jsonPath("$.status").value("DOCUMENTS_PENDING"))
                 .andExpect(jsonPath("$.cpf").value("12345678909"));
     }
 
     @Test
-    void shouldReturnNotFoundWhenOnboardingByExternalIdDoesNotExist() throws Exception {
-        UUID externalId = UUID.randomUUID();
-        when(customerOnboardingService.getByExternalId(externalId))
+    void shouldReturnNotFoundWhenOnboardingByProtocolDoesNotExist() throws Exception {
+        String protocol = "2026058909";
+        when(customerOnboardingService.getByProtocol(protocol))
                 .thenThrow(new ResourceNotFoundException("Onboarding not found"));
 
-        mockMvc.perform(get("/api/v1/onboardings/{externalId}", externalId))
+        mockMvc.perform(get("/api/v1/onboardings/protocol/{protocol}", protocol))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.status").value(404))
                 .andExpect(jsonPath("$.message").value("Onboarding not found"));
@@ -416,8 +421,8 @@ class CustomerOnboardingControllerTest {
     }
 
     @Test
-    void shouldReturnBadRequestWhenExternalIdIsMalformed() throws Exception {
-        mockMvc.perform(get("/api/v1/onboardings/{externalId}", "not-a-uuid"))
+    void shouldReturnBadRequestWhenProtocolIsMalformed() throws Exception {
+        mockMvc.perform(get("/api/v1/onboardings/protocol/{protocol}", "ABC123"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.status").value(400));
     }

@@ -10,6 +10,8 @@ import java.util.UUID;
 public record OnboardingResponse(
         @Schema(description = "Public onboarding identifier")
         UUID externalId,
+        @Schema(description = "Onboarding protocol used by end users", example = "2026052857")
+        String protocol,
         @Schema(description = "Customer full name")
         String fullName,
         @Schema(description = "Normalized customer CPF")

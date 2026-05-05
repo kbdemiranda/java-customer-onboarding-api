@@ -28,6 +28,7 @@ import io.github.kbdemiranda.customer.onboarding.mapper.CustomerOnboardingMapper
 import io.github.kbdemiranda.customer.onboarding.mapper.CustomerPhoneMapper;
 import io.github.kbdemiranda.customer.onboarding.mapper.AuditLogMapper;
 import java.time.LocalDateTime;
+import java.time.YearMonth;
 import io.github.kbdemiranda.customer.onboarding.repository.CustomerDocumentRepository;
 import io.github.kbdemiranda.customer.onboarding.repository.CustomerOnboardingRepository;
 import io.github.kbdemiranda.customer.onboarding.repository.OnboardingAuditLogRepository;
@@ -101,6 +102,7 @@ class CustomerOnboardingServiceImplTest {
         OnboardingResponse response = service.createOnboarding(request);
 
         assertEquals("12345678909", response.cpf());
+        assertEquals(YearMonth.now().toString().replace("-", "") + "8909", response.protocol());
         assertEquals(OnboardingStatus.DOCUMENTS_PENDING, response.status());
         assertEquals(1, response.addresses().size());
         assertEquals("Praca da Se", response.addresses().get(0).street());
@@ -229,27 +231,32 @@ class CustomerOnboardingServiceImplTest {
     }
 
     @Test
-    void shouldGetOnboardingByExternalId() {
+    void shouldGetOnboardingByProtocol() {
+        String protocol = "2026058909";
         UUID externalId = UUID.randomUUID();
         CustomerOnboarding onboarding = onboardingEntity("12345678909", OnboardingStatus.DOCUMENTS_PENDING);
         onboarding.setExternalId(externalId);
+        onboarding.setProtocol(protocol);
 
-        when(customerOnboardingRepository.findByExternalId(externalId)).thenReturn(java.util.Optional.of(onboarding));
+        when(customerOnboardingRepository.findFirstByProtocolOrderByCreatedAtDesc(protocol))
+                .thenReturn(java.util.Optional.of(onboarding));
 
-        OnboardingResponse response = service.getByExternalId(externalId);
+        OnboardingResponse response = service.getByProtocol(protocol);
 
         assertEquals(externalId, response.externalId());
+        assertEquals(protocol, response.protocol());
         assertEquals("12345678909", response.cpf());
         assertEquals(OnboardingStatus.DOCUMENTS_PENDING, response.status());
     }
 
     @Test
-    void shouldThrowWhenOnboardingByExternalIdIsNotFound() {
-        UUID externalId = UUID.randomUUID();
-        when(customerOnboardingRepository.findByExternalId(externalId)).thenReturn(java.util.Optional.empty());
+    void shouldThrowWhenOnboardingByProtocolIsNotFound() {
+        String protocol = "2026058909";
+        when(customerOnboardingRepository.findFirstByProtocolOrderByCreatedAtDesc(protocol))
+                .thenReturn(java.util.Optional.empty());
 
         ResourceNotFoundException exception =
-                assertThrows(ResourceNotFoundException.class, () -> service.getByExternalId(externalId));
+                assertThrows(ResourceNotFoundException.class, () -> service.getByProtocol(protocol));
 
         assertEquals("Onboarding not found", exception.getMessage());
     }
@@ -462,6 +469,7 @@ class CustomerOnboardingServiceImplTest {
     private CustomerOnboarding onboardingEntity(String cpf, OnboardingStatus status) {
         CustomerOnboarding onboarding = new CustomerOnboarding();
         onboarding.setExternalId(UUID.randomUUID());
+        onboarding.setProtocol("2026058909");
         onboarding.setFullName("John Doe");
         onboarding.setCpf(cpf);
         onboarding.setStatus(status);

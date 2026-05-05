@@ -32,6 +32,7 @@ public class CustomerOnboardingMapper {
     public OnboardingResponse toResponse(CustomerOnboarding entity) {
         return new OnboardingResponse(
                 entity.getExternalId(),
+                entity.getProtocol(),
                 entity.getFullName(),
                 entity.getCpf(),
                 entity.getStatus(),

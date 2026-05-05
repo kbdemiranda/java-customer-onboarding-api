@@ -18,6 +18,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import io.github.kbdemiranda.customer.onboarding.service.CustomerOnboardingService;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Pattern;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.validation.annotation.Validated;
@@ -91,20 +92,20 @@ public class CustomerOnboardingController {
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
-    @GetMapping("/{externalId}")
-    @Operation(summary = "Get onboarding by externalId", description = "Returns onboarding details by public external identifier.")
+    @GetMapping("/protocol/{protocol}")
+    @Operation(summary = "Get onboarding by protocol", description = "Returns onboarding details by user-friendly protocol.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Onboarding found",
                     content = @Content(schema = @Schema(implementation = OnboardingResponse.class))),
-            @ApiResponse(responseCode = "400", description = "Invalid externalId format",
+            @ApiResponse(responseCode = "400", description = "Invalid protocol format",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "404", description = "Onboarding not found",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
-    public ResponseEntity<OnboardingResponse> getByExternalId(
-            @Parameter(description = "Onboarding external identifier", required = true)
-            @PathVariable UUID externalId) {
-        OnboardingResponse response = customerOnboardingService.getByExternalId(externalId);
+    public ResponseEntity<OnboardingResponse> getByProtocol(
+            @Parameter(description = "Onboarding protocol (10 digits)", required = true, example = "2026052857")
+            @PathVariable @Pattern(regexp = "^\\d{10}$", message = "protocol must contain exactly 10 digits") String protocol) {
+        OnboardingResponse response = customerOnboardingService.getByProtocol(protocol);
         return ResponseEntity.ok(response);
     }
 
