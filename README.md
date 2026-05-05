@@ -1,135 +1,212 @@
 # Customer Onboarding API
 
-Backend API for a banking customer onboarding technical challenge.
+A production-like backend API for bank customer onboarding.
 
-<!-- TODO: Add API demo GIF here -->
+This service manages customer onboarding creation, address enrichment through zip code providers, document upload, and audit logging with a clean layered architecture.
 
-## Project Overview
-This project provides a REST API to onboard bank customers, including customer registration, zip code enrichment, document upload, and audit history tracking.
+## Table of Contents
+- [Overview](#overview)
+- [Business Rules](#business-rules)
+- [Architecture](#architecture)
+- [Tech Stack](#tech-stack)
+- [Project Structure](#project-structure)
+- [Requirements](#requirements)
+- [Running the Project](#running-the-project)
+- [Docker Environments](#docker-environments)
+- [Environment Variables](#environment-variables)
+- [Database and Migrations](#database-and-migrations)
+- [API Reference](#api-reference)
+- [Error Response Contract](#error-response-contract)
+- [Testing](#testing)
+- [Observability](#observability)
+- [Development Notes](#development-notes)
 
-## Banking Context
-Banks need a controlled onboarding process to collect customer identity data, validate mandatory fields, receive supporting documents, and keep an auditable history of actions.
+## Overview
+The API provides onboarding operations for a banking scenario:
+- Create onboarding records with CPF validation and normalization.
+- Enrich addresses from zip code providers before persistence.
+- Upload and list documents linked to onboarding records.
+- Expose onboarding history through audit logs.
+- Return standardized error responses.
 
-## Main Features
-- Create customer onboarding with CPF validation and normalization.
-- Enrich addresses from zip code providers (WireMock first, ViaCEP fallback).
-- Upload onboarding documents with type and content validation.
-- List onboardings with pagination and filters.
-- Retrieve onboarding details, uploaded documents, and audit logs.
-- Standardized error response format.
+## Business Rules
+- Every `CustomerOnboarding` must have a valid CPF.
+- CPF must be unique.
+- At creation time, at least one primary contact method is required (email or phone).
+- At most one primary email, phone, and address per onboarding.
+- Address data is enriched via zip code providers before saving.
+- Public API uses `externalId` (`UUID`) and never exposes internal DB IDs.
+
+## Architecture
+Layered architecture:
+
+`Controller -> Service -> Repository / Client`
+
+Responsibilities:
+- Controllers: HTTP layer only, thin endpoints.
+- Services: business rules and orchestration.
+- Repositories: persistence access only.
+- Clients: external integrations (`WireMock`, `ViaCEP`).
+
+Zip code fallback strategy:
+1. `WireMockZipCodeClient`
+2. `ViaCepZipCodeClient` (fallback if not found)
 
 ## Tech Stack
 - Java 21
 - Spring Boot 4
-- Spring Web / Validation / Data JPA
+- Maven
+- Spring Web, Validation, Data JPA, Actuator
 - PostgreSQL
 - Flyway
-- Maven
-- springdoc-openapi (Swagger UI)
+- Springdoc OpenAPI (Swagger UI)
 
-## Architecture
-Layered architecture:
-- Controller -> Service -> Repository / Client
+## Project Structure
+```text
+src/main/java/io/github/kbdemiranda/customer/onboarding
+  |- controller
+  |- service
+  |- repository
+  |- client
+  |- entity
+  |- dto
+  |- mapper
+  |- exception
+  |- config
 
-<!-- TODO: Add Mermaid architecture diagram here -->
+src/main/resources
+  |- application.yml
+  |- db/migration
 
-<!-- TODO: Add Mermaid onboarding flow diagram here -->
-
-## How to Run Locally
-### Prerequisites
-- Java 21
-- Docker and Docker Compose (recommended)
-- Maven Wrapper (`./mvnw`)
-
-### 1. Start dependencies
-```bash
-docker compose up -d
+wiremock/mappings
 ```
 
-### 2. Run the API
+## Requirements
+- Java 21
+- Docker + Docker Compose v2
+- Optional for local non-container run: Maven Wrapper (`./mvnw`)
+
+## Running the Project
+### Option 1: Full Docker (recommended)
+Use one of the environment-specific compose files below.
+
+### Option 2: Run API locally + infra in Docker
+1. Start dependencies:
+```bash
+docker compose --env-file .env.local -f docker-compose.local.yml up -d postgres wiremock
+```
+2. Run API:
 ```bash
 ./mvnw spring-boot:run
 ```
 
-The API runs by default at `http://localhost:8080`.
+Default API URL: `http://localhost:8080`
 
-## Docker Compose
-The included `docker-compose.yml` starts:
-- PostgreSQL database
-- WireMock server for zip code mock responses
+## Docker Environments
+Three compose files are available:
 
+- `docker-compose.local.yml`: local development (builds API image from source).
+- `docker-compose.dev.yml`: development environment (uses prebuilt image from `APP_IMAGE`).
+- `docker-compose.prod.yml`: production-like runtime (uses prebuilt image from `APP_IMAGE`).
+
+### Local
 Start:
 ```bash
-docker compose up -d
+docker compose --env-file .env.local -f docker-compose.local.yml up -d --build
 ```
-
 Stop:
 ```bash
-docker compose down
+docker compose --env-file .env.local -f docker-compose.local.yml down
+```
+
+### Dev
+Start:
+```bash
+docker compose --env-file .env.dev -f docker-compose.dev.yml up -d
+```
+Stop:
+```bash
+docker compose --env-file .env.dev -f docker-compose.dev.yml down
+```
+
+### Prod
+Start:
+```bash
+docker compose --env-file .env.prod -f docker-compose.prod.yml up -d
+```
+Stop:
+```bash
+docker compose --env-file .env.prod -f docker-compose.prod.yml down
 ```
 
 ## Environment Variables
-Key variables (with defaults from `application.yml`):
-- `SERVER_PORT` (default: `8080`)
-- `SPRING_DATASOURCE_URL` (default: `jdbc:postgresql://localhost:5432/customers_onboarding`)
-- `SPRING_DATASOURCE_USERNAME` (default: `postgres`)
-- `SPRING_DATASOURCE_PASSWORD` (default: `postgres`)
-- `POSTGRES_USER` (used by Docker Compose)
-- `POSTGRES_PASSWORD` (used by Docker Compose)
+Main application variables:
+- `SERVER_PORT` (default `8080`)
+- `SPRING_PROFILES_ACTIVE` (`local`, `dev`, `prod`)
+- `SPRING_DATASOURCE_URL`
+- `SPRING_DATASOURCE_USERNAME`
+- `SPRING_DATASOURCE_PASSWORD`
+- `ZIP_CODE_WIREMOCK_BASE_URL`
+- `ZIP_CODE_VIACEP_BASE_URL`
 
-## API Endpoints
-Base path: `/api/v1/onboardings`
+Database/container variables:
+- `POSTGRES_DB`
+- `POSTGRES_USER`
+- `POSTGRES_PASSWORD`
+- `POSTGRES_PORT` (local/dev)
+- `WIREMOCK_PORT` (local/dev)
+- `APP_IMAGE` (dev/prod)
+
+Reference files:
+- `.env.example`
+- `.env.local`
+- `.env.dev`
+- `.env.prod`
+
+## Database and Migrations
+- Database: PostgreSQL
+- Migration tool: Flyway
+- Schema generation is not automatic (`ddl-auto=validate`).
+- All schema changes must be done via new migration files in:
+  - `src/main/resources/db/migration`
+
+## API Reference
+Base path: `/api/v1`
+
+Onboarding:
 - `POST /api/v1/onboardings`
 - `GET /api/v1/onboardings`
 - `GET /api/v1/onboardings/{externalId}`
+
+Documents:
 - `POST /api/v1/onboardings/{externalId}/documents`
 - `GET /api/v1/onboardings/{externalId}/documents`
+
+Audit:
 - `GET /api/v1/onboardings/{externalId}/audit-logs`
 
-## Example cURL Requests
-### Create onboarding
-```bash
-curl -X POST http://localhost:8080/api/v1/onboardings \
-  -H "Content-Type: application/json" \
-  -d '{
-    "fullName": "John Doe",
-    "cpf": "123.456.789-09",
-    "emails": [{"email": "john@example.com", "primaryEmail": true}],
-    "phones": [{"phoneNumber": "11999999999", "primaryPhone": false}],
-    "addresses": [{"zipCode": "01001-000", "number": "100", "complement": "Apt 10", "primaryAddress": true}]
-  }'
-```
+Zip code support endpoints:
+- `GET /api/v1/zip-codes/{zipCode}`
+- `GET /api/v1/zip-code-query-logs`
 
-### List onboardings
-```bash
-curl "http://localhost:8080/api/v1/onboardings?page=0&size=10&status=DOCUMENTS_PENDING"
-```
-
-### Get onboarding by externalId
-```bash
-curl http://localhost:8080/api/v1/onboardings/{externalId}
-```
-
-### Upload document
-```bash
-curl -X POST "http://localhost:8080/api/v1/onboardings/{externalId}/documents" \
-  -F "file=@/path/to/cpf.pdf" \
-  -F "documentType=CPF"
-```
-
-### List documents
-```bash
-curl http://localhost:8080/api/v1/onboardings/{externalId}/documents
-```
-
-### List audit logs
-```bash
-curl http://localhost:8080/api/v1/onboardings/{externalId}/audit-logs
-```
-
-## Swagger / OpenAPI
+Swagger/OpenAPI:
 - Swagger UI: `http://localhost:8080/swagger-ui.html`
 - OpenAPI JSON: `http://localhost:8080/v3/api-docs`
+
+## Error Response Contract
+Errors follow this format:
+
+```json
+{
+  "timestamp": "...",
+  "status": 400,
+  "error": "Bad Request",
+  "message": "...",
+  "path": "..."
+}
+```
+
+Implemented with global exception handling (`@RestControllerAdvice`).
 
 ## Testing
 Run all tests:
@@ -137,15 +214,22 @@ Run all tests:
 ./mvnw clean test
 ```
 
-## Technical Decisions
-- Public API exposes only `externalId` (UUID), never internal DB IDs.
-- Input normalization is applied for identifiers like CPF and zip code.
-- Address enrichment uses provider fallback strategy (WireMock -> ViaCEP).
-- Global exception handling returns a consistent error contract.
-- Flyway is used for schema migration control.
+Current test coverage includes:
+- Service unit tests
+- Controller tests
+- Client behavior tests
 
-## Future Improvements
-- Improve observability with structured logs and trace correlation.
-- Add integration tests with Testcontainers for PostgreSQL.
-- Add rate limiting and resilience patterns for external provider calls.
-- Add asynchronous document processing pipeline if needed.
+## Observability
+Spring Boot Actuator is enabled.
+
+Exposed endpoints:
+- `/actuator/health`
+- `/actuator/info`
+
+## Development Notes
+- Use constructor injection.
+- Prefer records for DTOs when applicable.
+- Keep backend naming in English (`zipCode`, not `cep` internally).
+- Keep `cep` only where external provider payloads require it.
+- Do not expose internal database IDs in API contracts.
+- Build features in small, safe increments.
