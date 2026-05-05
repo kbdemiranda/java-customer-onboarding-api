@@ -28,7 +28,6 @@ import io.github.kbdemiranda.customer.onboarding.mapper.CustomerOnboardingMapper
 import io.github.kbdemiranda.customer.onboarding.mapper.CustomerPhoneMapper;
 import io.github.kbdemiranda.customer.onboarding.mapper.AuditLogMapper;
 import java.time.LocalDateTime;
-import java.time.YearMonth;
 import io.github.kbdemiranda.customer.onboarding.repository.CustomerDocumentRepository;
 import io.github.kbdemiranda.customer.onboarding.repository.CustomerOnboardingRepository;
 import io.github.kbdemiranda.customer.onboarding.repository.OnboardingAuditLogRepository;
@@ -92,6 +91,7 @@ class CustomerOnboardingServiceImplTest {
         ZipCodeResponse addressData = new ZipCodeResponse("01001000", "Praca da Se", "Se", "Sao Paulo", "SP");
 
         when(customerOnboardingRepository.existsByCpf("12345678909")).thenReturn(false);
+        when(customerOnboardingRepository.existsByProtocol(any())).thenReturn(false);
         when(zipCodeService.searchZipCode("01001000")).thenReturn(addressData);
         when(customerOnboardingRepository.save(any(CustomerOnboarding.class))).thenAnswer(invocation -> {
             CustomerOnboarding onboarding = invocation.getArgument(0);
@@ -102,7 +102,7 @@ class CustomerOnboardingServiceImplTest {
         OnboardingResponse response = service.createOnboarding(request);
 
         assertEquals("12345678909", response.cpf());
-        assertEquals(YearMonth.now().toString().replace("-", "") + "8909", response.protocol());
+        assertEquals(14, response.protocol().length());
         assertEquals(OnboardingStatus.DOCUMENTS_PENDING, response.status());
         assertEquals(1, response.addresses().size());
         assertEquals("Praca da Se", response.addresses().get(0).street());
@@ -232,7 +232,7 @@ class CustomerOnboardingServiceImplTest {
 
     @Test
     void shouldGetOnboardingByProtocol() {
-        String protocol = "2026058909";
+        String protocol = "58392017463051";
         UUID externalId = UUID.randomUUID();
         CustomerOnboarding onboarding = onboardingEntity("12345678909", OnboardingStatus.DOCUMENTS_PENDING);
         onboarding.setExternalId(externalId);
@@ -251,7 +251,7 @@ class CustomerOnboardingServiceImplTest {
 
     @Test
     void shouldThrowWhenOnboardingByProtocolIsNotFound() {
-        String protocol = "2026058909";
+        String protocol = "58392017463051";
         when(customerOnboardingRepository.findFirstByProtocolOrderByCreatedAtDesc(protocol))
                 .thenReturn(java.util.Optional.empty());
 
@@ -469,7 +469,7 @@ class CustomerOnboardingServiceImplTest {
     private CustomerOnboarding onboardingEntity(String cpf, OnboardingStatus status) {
         CustomerOnboarding onboarding = new CustomerOnboarding();
         onboarding.setExternalId(UUID.randomUUID());
-        onboarding.setProtocol("2026058909");
+        onboarding.setProtocol("58392017463051");
         onboarding.setFullName("John Doe");
         onboarding.setCpf(cpf);
         onboarding.setStatus(status);

@@ -103,8 +103,8 @@ public class CustomerOnboardingController {
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
     public ResponseEntity<OnboardingResponse> getByProtocol(
-            @Parameter(description = "Onboarding protocol (10 digits)", required = true, example = "2026052857")
-            @PathVariable @Pattern(regexp = "^\\d{10}$", message = "protocol must contain exactly 10 digits") String protocol) {
+            @Parameter(description = "Onboarding protocol (14 digits)", required = true, example = "58392017463051")
+            @PathVariable @Pattern(regexp = "^\\d{14}$", message = "protocol must contain exactly 14 digits") String protocol) {
         OnboardingResponse response = customerOnboardingService.getByProtocol(protocol);
         return ResponseEntity.ok(response);
     }

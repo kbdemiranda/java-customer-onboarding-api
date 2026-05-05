@@ -14,6 +14,7 @@ public interface CustomerOnboardingRepository extends JpaRepository<CustomerOnbo
 
     Optional<CustomerOnboarding> findByExternalId(UUID externalId);
     Optional<CustomerOnboarding> findFirstByProtocolOrderByCreatedAtDesc(String protocol);
+    boolean existsByProtocol(String protocol);
 
     boolean existsByCpf(String cpf);
 

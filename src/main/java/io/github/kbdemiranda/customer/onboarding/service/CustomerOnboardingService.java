@@ -16,7 +16,7 @@ public interface CustomerOnboardingService {
 
     OnboardingResponse createOnboarding(CreateOnboardingRequest request);
 
-    OnboardingResponse getByProtocol(@Pattern(regexp = "^\\d{10}$", message = "protocol must contain exactly 10 digits") String protocol);
+    OnboardingResponse getByProtocol(@Pattern(regexp = "^\\d{14}$", message = "protocol must contain exactly 14 digits") String protocol);
 
     PageResponse<OnboardingResponse> listOnboardings(OnboardingFilter criteria);
 

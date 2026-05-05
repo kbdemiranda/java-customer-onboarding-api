@@ -37,8 +37,8 @@ import jakarta.transaction.Transactional;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.time.YearMonth;
 import java.util.List;
+import java.security.SecureRandom;
 import java.util.Set;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
@@ -53,6 +53,10 @@ import org.springframework.web.multipart.MultipartFile;
 public class CustomerOnboardingServiceImpl implements CustomerOnboardingService {
 
     private static final long MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
+    private static final int PROTOCOL_LENGTH = 14;
+    private static final long PROTOCOL_BOUND = 100_000_000_000_000L;
+    private static final int MAX_PROTOCOL_GENERATION_ATTEMPTS = 20;
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
     private static final Set<String> ALLOWED_CONTENT_TYPES = Set.of(
             "application/pdf",
             "image/png",
@@ -104,7 +108,6 @@ public class CustomerOnboardingServiceImpl implements CustomerOnboardingService 
 
         CustomerOnboarding onboarding = customerOnboardingMapper.toEntity(request);
         onboarding.setCpf(normalizedCpf);
-        onboarding.setProtocol(generateProtocol(normalizedCpf));
         onboarding.setStatus(OnboardingStatus.DOCUMENTS_PENDING);
 
         List<CustomerEmail> emails = request.emails().stream()
@@ -123,7 +126,7 @@ public class CustomerOnboardingServiceImpl implements CustomerOnboardingService 
         onboarding.setPhones(phones);
         onboarding.setAddresses(addresses);
 
-        CustomerOnboarding savedOnboarding = customerOnboardingRepository.save(onboarding);
+        CustomerOnboarding savedOnboarding = saveWithUniqueProtocol(onboarding);
 
         OnboardingAuditLog auditLog = new OnboardingAuditLog();
         auditLog.setOnboarding(savedOnboarding);
@@ -295,10 +298,21 @@ public class CustomerOnboardingServiceImpl implements CustomerOnboardingService 
         return value == null ? "" : value.replaceAll("\\D", "");
     }
 
-    private String generateProtocol(String normalizedCpf) {
-        String yearMonth = YearMonth.now().toString().replace("-", "");
-        String cpfLastFourDigits = normalizedCpf.substring(normalizedCpf.length() - 4);
-        return yearMonth + cpfLastFourDigits;
+    private CustomerOnboarding saveWithUniqueProtocol(CustomerOnboarding onboarding) {
+        for (int attempt = 1; attempt <= MAX_PROTOCOL_GENERATION_ATTEMPTS; attempt++) {
+            String protocol = generateRandomProtocol();
+            if (customerOnboardingRepository.existsByProtocol(protocol)) {
+                continue;
+            }
+            onboarding.setProtocol(protocol);
+            return customerOnboardingRepository.save(onboarding);
+        }
+        throw new IllegalStateException("Failed to generate a unique onboarding protocol");
+    }
+
+    private String generateRandomProtocol() {
+        long value = SECURE_RANDOM.nextLong(PROTOCOL_BOUND);
+        return String.format("%0" + PROTOCOL_LENGTH + "d", value);
     }
 
     private void validateDocument(MultipartFile file, DocumentType documentType) {

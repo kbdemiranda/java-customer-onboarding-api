@@ -56,7 +56,7 @@ class CustomerOnboardingControllerTest {
     void shouldReturnCreatedWhenOnboardingIsCreated() throws Exception {
         OnboardingResponse response = new OnboardingResponse(
                 UUID.randomUUID(),
-                "2026058909",
+                "58392017463051",
                 "John Doe",
                 "12345678909",
                 OnboardingStatus.DOCUMENTS_PENDING,
@@ -280,7 +280,7 @@ class CustomerOnboardingControllerTest {
     void shouldReturnOkWhenListingOnboardingsWithPaginationAndStatusFilter() throws Exception {
         OnboardingResponse onboarding = new OnboardingResponse(
                 UUID.randomUUID(),
-                "2026058909",
+                "58392017463051",
                 "John Doe",
                 "12345678909",
                 OnboardingStatus.DOCUMENTS_PENDING,
@@ -306,7 +306,7 @@ class CustomerOnboardingControllerTest {
 
     @Test
     void shouldReturnOkWhenGettingOnboardingByProtocol() throws Exception {
-        String protocol = "2026058909";
+        String protocol = "58392017463051";
         UUID externalId = UUID.randomUUID();
         OnboardingResponse response = new OnboardingResponse(
                 externalId,
@@ -331,7 +331,7 @@ class CustomerOnboardingControllerTest {
 
     @Test
     void shouldReturnNotFoundWhenOnboardingByProtocolDoesNotExist() throws Exception {
-        String protocol = "2026058909";
+        String protocol = "58392017463051";
         when(customerOnboardingService.getByProtocol(protocol))
                 .thenThrow(new ResourceNotFoundException("Onboarding not found"));
 

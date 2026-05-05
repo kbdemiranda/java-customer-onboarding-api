@@ -51,7 +51,7 @@ public class CustomerOnboarding {
     @Column(name = "cpf", nullable = false)
     private String cpf;
 
-    @Column(name = "protocol", nullable = false, length = 10)
+    @Column(name = "protocol", nullable = false, length = 14)
     private String protocol;
 
     @Enumerated(EnumType.STRING)
