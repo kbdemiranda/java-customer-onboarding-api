@@ -6,6 +6,8 @@ This service manages customer onboarding creation, address enrichment through zi
 
 ## Table of Contents
 - [Overview](#overview)
+- [System Demo](#system-demo)
+- [Diagrams](#diagrams)
 - [Business Rules](#business-rules)
 - [Architecture](#architecture)
 - [Tech Stack](#tech-stack)
@@ -28,6 +30,17 @@ The API provides onboarding operations for a banking scenario:
 - Upload and list documents linked to onboarding records.
 - Expose onboarding history through audit logs.
 - Return standardized error responses.
+
+## System Demo
+<!-- TODO: Replace with your system demo GIF/video/screenshot -->
+<!-- Example: ![System Demo](docs/demo.gif) -->
+
+_Add your demo media here._
+
+## Diagrams
+Current onboarding flow diagram:
+
+![Onboarding Flow Diagram](diagms/fluxogram.png)
 
 ## Business Rules
 - Every `CustomerOnboarding` must have a valid CPF.
@@ -90,10 +103,15 @@ wiremock/mappings
 ### Option 1: Full Docker (recommended)
 Use one of the environment-specific compose files below.
 
+Before running, create your local env file:
+```bash
+cp .env.model .env
+```
+
 ### Option 2: Run API locally + infra in Docker
 1. Start dependencies:
 ```bash
-docker compose --env-file .env.local -f docker-compose.local.yml up -d postgres wiremock
+docker compose -f docker-compose.local.yml up -d postgres wiremock
 ```
 2. Run API:
 ```bash
@@ -112,31 +130,31 @@ Three compose files are available:
 ### Local
 Start:
 ```bash
-docker compose --env-file .env.local -f docker-compose.local.yml up -d --build
+docker compose -f docker-compose.local.yml up -d --build
 ```
 Stop:
 ```bash
-docker compose --env-file .env.local -f docker-compose.local.yml down
+docker compose -f docker-compose.local.yml down
 ```
 
 ### Dev
 Start:
 ```bash
-docker compose --env-file .env.dev -f docker-compose.dev.yml up -d
+docker compose -f docker-compose.dev.yml up -d
 ```
 Stop:
 ```bash
-docker compose --env-file .env.dev -f docker-compose.dev.yml down
+docker compose -f docker-compose.dev.yml down
 ```
 
 ### Prod
 Start:
 ```bash
-docker compose --env-file .env.prod -f docker-compose.prod.yml up -d
+docker compose -f docker-compose.prod.yml up -d
 ```
 Stop:
 ```bash
-docker compose --env-file .env.prod -f docker-compose.prod.yml down
+docker compose -f docker-compose.prod.yml down
 ```
 
 ## Environment Variables
@@ -158,10 +176,8 @@ Database/container variables:
 - `APP_IMAGE` (dev/prod)
 
 Reference files:
-- `.env.example`
-- `.env.local`
-- `.env.dev`
-- `.env.prod`
+- `.env.model` (versioned template)
+- `.env` (local, not versioned)
 
 ## Database and Migrations
 - Database: PostgreSQL

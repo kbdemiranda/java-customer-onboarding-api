@@ -3,7 +3,7 @@ services:
     image: ${APP_IMAGE}
     container_name: onboarding-api-dev
     env_file:
-      - .env.dev
+      - .env
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
       ZIP_CODE_WIREMOCK_BASE_URL: http://wiremock:8080
@@ -20,7 +20,7 @@ services:
     image: postgres:17-alpine
     container_name: onboarding-postgres-dev
     env_file:
-      - .env.dev
+      - .env
     ports:
       - "${POSTGRES_PORT}:5432"
     healthcheck:

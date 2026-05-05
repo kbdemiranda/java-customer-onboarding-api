@@ -5,7 +5,7 @@ services:
       dockerfile: Dockerfile
     container_name: onboarding-api-local
     env_file:
-      - .env.local
+      - .env
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
       ZIP_CODE_WIREMOCK_BASE_URL: http://wiremock:8080
@@ -22,7 +22,7 @@ services:
     image: postgres:17-alpine
     container_name: onboarding-postgres-local
     env_file:
-      - .env.local
+      - .env
     ports:
       - "${POSTGRES_PORT}:5432"
     healthcheck:
