@@ -33,6 +33,7 @@ import org.springframework.web.client.RestClientException;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -96,6 +97,41 @@ class CustomerOnboardingControllerTest {
     }
 
     @Test
+    void shouldReturnBadRequestWhenIdentityAliasIsUsedOnUpload() throws Exception {
+        UUID onboardingExternalId = UUID.randomUUID();
+        MockMultipartFile file = new MockMultipartFile("file", "identity.pdf", "application/pdf", "content".getBytes());
+        mockMvc.perform(multipart("/api/v1/onboardings/{externalId}/documents", onboardingExternalId)
+                        .file(file)
+                        .param("documentType", "identity"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.message").value("Invalid value for parameter: documentType"));
+    }
+
+    @Test
+    void shouldMapCnhToDriverLicenseOnUpload() throws Exception {
+        UUID onboardingExternalId = UUID.randomUUID();
+        DocumentResponse response = new DocumentResponse(
+                UUID.randomUUID(),
+                DocumentType.DRIVER_LICENSE,
+                "cnh.pdf",
+                "application/pdf",
+                7L,
+                LocalDateTime.now()
+        );
+        when(customerOnboardingService.uploadDocument(any(), any(), any())).thenReturn(response);
+
+        MockMultipartFile file = new MockMultipartFile("file", "cnh.pdf", "application/pdf", "content".getBytes());
+        mockMvc.perform(multipart("/api/v1/onboardings/{externalId}/documents", onboardingExternalId)
+                        .file(file)
+                        .param("documentType", "CNH"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.documentType").value("DRIVER_LICENSE"));
+
+        verify(customerOnboardingService).uploadDocument(eq(onboardingExternalId), any(), eq(DocumentType.DRIVER_LICENSE));
+    }
+
+    @Test
     void shouldReturnBadRequestWhenDocumentTypeIsInvalidOnUpload() throws Exception {
         UUID onboardingExternalId = UUID.randomUUID();
         MockMultipartFile file = new MockMultipartFile("file", "document.pdf", "application/pdf", "content".getBytes());
@@ -152,7 +188,7 @@ class CustomerOnboardingControllerTest {
         );
         DocumentResponse secondDocument = new DocumentResponse(
                 UUID.randomUUID(),
-                DocumentType.RG,
+                DocumentType.IDENTITY_REGISTER,
                 "rg.png",
                 "image/png",
                 2400L,
@@ -169,7 +205,7 @@ class CustomerOnboardingControllerTest {
                 .andExpect(jsonPath("$[0].fileSize").value(1200))
                 .andExpect(jsonPath("$[0].storagePath").doesNotExist())
                 .andExpect(jsonPath("$[1].externalId").value(secondDocument.externalId().toString()))
-                .andExpect(jsonPath("$[1].documentType").value("RG"));
+                .andExpect(jsonPath("$[1].documentType").value("IDENTITY_REGISTER"));
     }
 
     @Test

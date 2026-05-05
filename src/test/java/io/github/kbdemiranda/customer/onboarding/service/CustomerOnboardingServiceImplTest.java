@@ -321,7 +321,7 @@ class CustomerOnboardingServiceImplTest {
 
         CustomerDocument oldestDocument = new CustomerDocument();
         oldestDocument.setExternalId(UUID.randomUUID());
-        oldestDocument.setDocumentType(DocumentType.RG);
+        oldestDocument.setDocumentType(DocumentType.IDENTITY_REGISTER);
         oldestDocument.setOriginalFileName("rg.png");
         oldestDocument.setContentType("image/png");
         oldestDocument.setFileSize(900L);

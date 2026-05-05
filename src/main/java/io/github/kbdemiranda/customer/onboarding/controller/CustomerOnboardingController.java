@@ -85,7 +85,7 @@ public class CustomerOnboardingController {
                                                            @Parameter(description = "Document file to upload", required = true,
                                                                    content = @Content(mediaType = "multipart/form-data"))
                                                            @RequestPart("file") MultipartFile file,
-                                                           @Parameter(description = "Document type. Allowed values: CPF, RG, CNH, PASSPORT, PROOF_OF_ADDRESS", required = true)
+                                                           @Parameter(description = "Document type. Allowed values: CPF, IDENTITY_REGISTER, DRIVER_LICENSE, PASSPORT, PROOF_OF_ADDRESS", required = true)
                                                            @RequestParam("documentType") DocumentType documentType) {
         DocumentResponse response = customerOnboardingService.uploadDocument(externalId, file, documentType);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
