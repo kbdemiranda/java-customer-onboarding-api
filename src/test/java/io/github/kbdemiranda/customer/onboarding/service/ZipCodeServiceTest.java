@@ -107,10 +107,25 @@ class ZipCodeServiceTest {
     }
 
     @Test
-    void shouldSaveErrorLogWhenProviderFails() {
+    void shouldFallbackToViaCepWhenWireMockFails() {
+        String zipCode = "01001000";
+        ZipCodeResponse viaCepAddress = new ZipCodeResponse(zipCode, "Street B", "Neighborhood B", "Sao Paulo", "SP");
+        when(wireMockZipCodeClient.findByZipCode(zipCode))
+                .thenThrow(new ExternalProviderException("WireMock provider failed"));
+        when(viaCepZipCodeClient.findByZipCode(zipCode)).thenReturn(Optional.of(viaCepAddress));
+
+        ZipCodeResponse result = zipCodeService.searchZipCode(zipCode);
+
+        assertEquals(viaCepAddress, result);
+    }
+
+    
+    void shouldSaveErrorLogWhenBothProvidersFail() {
         String zipCode = "01001000";
         when(wireMockZipCodeClient.findByZipCode(zipCode))
                 .thenThrow(new ExternalProviderException("WireMock provider failed"));
+        when(viaCepZipCodeClient.findByZipCode(zipCode))
+                .thenThrow(new ExternalProviderException("ViaCEP provider failed"));
 
         assertThrows(ExternalProviderException.class, () -> zipCodeService.searchZipCode(zipCode));
 

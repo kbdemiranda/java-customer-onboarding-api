@@ -37,6 +37,7 @@ public class ZipCodeServiceImpl implements ZipCodeService {
     public ZipCodeResponse searchZipCode(String zipCode) {
         String normalizedZipCode = normalizeAndValidate(zipCode);
         LocalDateTime requestTimestamp = LocalDateTime.now();
+        ExternalProviderException wireMockFailure = null;
 
         try {
             var wireMockResult = wireMockZipCodeClient.findByZipCode(normalizedZipCode);
@@ -47,9 +48,7 @@ public class ZipCodeServiceImpl implements ZipCodeService {
                 return response;
             }
         } catch (ExternalProviderException ex) {
-            saveLog(normalizedZipCode, ZipCodeProvider.WIREMOCK, ZipCodeQueryStatus.ERROR,
-                    requestTimestamp, null, ex.getMessage());
-            throw ex;
+            wireMockFailure = ex;
         }
 
         try {
@@ -61,8 +60,11 @@ public class ZipCodeServiceImpl implements ZipCodeService {
                 return response;
             }
         } catch (ExternalProviderException ex) {
+            String errorMessage = wireMockFailure == null
+                    ? ex.getMessage()
+                    : "WireMock failed: %s | ViaCEP failed: %s".formatted(wireMockFailure.getMessage(), ex.getMessage());
             saveLog(normalizedZipCode, ZipCodeProvider.VIACEP, ZipCodeQueryStatus.ERROR,
-                    requestTimestamp, null, ex.getMessage());
+                    requestTimestamp, null, errorMessage);
             throw ex;
         }
 

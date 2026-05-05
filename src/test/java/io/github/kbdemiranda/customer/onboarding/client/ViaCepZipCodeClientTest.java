@@ -70,7 +70,7 @@ class ViaCepZipCodeClientTest {
     }
 
     @Test
-    void shouldReturnEmptyWhenEssentialFieldsAreMissing() {
+    void shouldReturnPartialAddressWhenViaCepReturnsPartialFields() {
         server.expect(once(), requestTo("https://viacep.com.br/ws/01001000/json"))
                 .andExpect(method(HttpMethod.GET))
                 .andRespond(withSuccess("""
@@ -83,7 +83,10 @@ class ViaCepZipCodeClientTest {
 
         Optional<ZipCodeResponse> result = client.findByZipCode("01001000");
 
-        assertTrue(result.isEmpty());
+        assertTrue(result.isPresent());
+        assertEquals("01001000", result.get().zipCode());
+        assertEquals("Sao Paulo", result.get().city());
+        assertEquals("SP", result.get().state());
         server.verify();
     }
 

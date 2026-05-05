@@ -41,13 +41,13 @@ public class ViaCepZipCodeClient implements ZipCodeClient {
             String resolvedCity = firstNotBlank(body.localidade(), body.city());
             String resolvedState = firstNotBlank(body.uf(), body.state());
 
-            if (isBlank(resolvedZipCode) || isBlank(resolvedStreet)
-                    || isBlank(resolvedNeighborhood) || isBlank(resolvedCity) || isBlank(resolvedState)) {
+            if (isBlank(resolvedZipCode) && isBlank(resolvedStreet)
+                    && isBlank(resolvedNeighborhood) && isBlank(resolvedCity) && isBlank(resolvedState)) {
                 return Optional.empty();
             }
 
             return Optional.of(new ZipCodeResponse(
-                    resolvedZipCode.replaceAll("\\D", ""),
+                    isBlank(resolvedZipCode) ? zipCode : resolvedZipCode.replaceAll("\\D", ""),
                     resolvedStreet,
                     resolvedNeighborhood,
                     resolvedCity,
